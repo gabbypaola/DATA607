@@ -1,0 +1,46 @@
+---
+title: "Loading Data into a Data Frame"
+author: "Gabriella Martinez"
+date: "2/6/2021"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+## Super Bowl Advertisements
+### Overview
+With the super bowl around the corner, the data set "superbowl -ads" from fivethirtyeight <https://projects.fivethirtyeight.com/super-bowl-ads/> delves into the top ten brands with the most advertisements run on Super Bowl Sundays from 2000 to 2020. The data for "superbowl-ads" originates from <http://www.superbowl-ads.com>. The data set includes a link to the YouTube video for the advertisement and seven straight forward labeled attributes used to describe the advertisement which are: funny, show_product_quickly, patriotic, celebrity, danger, animals, and use_sex. 
+
+```{r load_libraries, include=FALSE}
+library(RCurl)
+library(colorspace)
+library(tidyverse)
+library(ggplot2)
+```
+```{r fetch_plot, echo=FALSE}
+x <- url("https://raw.githubusercontent.com/fivethirtyeight/superbowl-ads/main/superbowl-ads.csv")
+superbowl_ads <- read.csv(x)
+
+funny_plot <- ggplot(superbowl_ads, aes(x = funny)) +
+        geom_bar(aes(y = (..count..)/sum(..count..))) +
+        xlab("Funny Commercials")+
+        scale_y_continuous(labels = scales::percent, name = "Proportion") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(funny_plot + ggtitle("Proportion of Funny Super Bowl Commercials 2000-2020 "))
+
+
+```
+
+### Findings and Recommendations  
+Since the attributes funny, show_product_quickly, patriotic, celebrity, danger, animals, and use_sex are qualitative in nature, it would be a good idea to obtain the amount of revenue generated as a result of the advertisements run on Super Bowl Sunday and see which types and combinations of qualitative attributes produce the most revenue for each brand.  
+
+#### Super Bowl Summary Data
+```{r additional_data, echo=FALSE}
+summary(superbowl_ads)
+```
+
+Breakdown of 'Funny' Attribute
+```{r additional_dataa, echo=FALSE}
+table(superbowl_ads$funny)
+```
+
