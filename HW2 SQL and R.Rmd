@@ -1,0 +1,70 @@
+---
+title: "SQL and R"
+author: "Gabriella Martinez"
+date: "2/13/2021"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+## Week 2 Assignment – Recommend Movies SQL & R
+
+```{r include=FALSE}
+library(kableExtra)
+library(RMySQL)
+library(RODBC)
+library(reshape2)
+library (knitr)
+library(ggplot2)
+```
+
+### Data Collection & Storing Data in a Relational Database
+For this weeks assignment, I collected the data from from five friends and family members, including our treasured four month old furry friend and asked them for their opinion on six recently watched movies. When it comes to our furry friend, Canela her rating was determined based on the movie content. If the movie featured a dog for the majority of the movie, that rating was automatically given a 5 and all others NA since she wasn't engaged when we watched the movie. The data was initially captured on an Excel file on my phone and then transferred into a relational database management system (RDBMS), MySQL.  
+Although this assignment was not required to be entirely reproducible, my goal was to make it reproducible in order have the option to access it at a later time down the line to track my progress.   
+The Excel spreadsheet, SQL file, and CSV file may be found using the following link: <https://github.com/gabbypaola/DATA-607>  
+
+### Importing and Preparing Data  
+Below is the code used to extract the data from the CSV file on GitHub. After extracting the CSV file, the dataframe required formatting the six movie columns into one which was taken care of my the melt function. In order to handle the missing data which was expected while conducting the survey, I created a new table that omits the NA values identified in the resulting table from the CSV file using the na.omit function. 
+```{r import_and_prep}
+x <- url("https://raw.githubusercontent.com/gabbypaola/DATA-607/main/HW2%20Relational%20Database%20Storage.csv")
+movies <- read.csv(x)
+
+formatData <-melt(movies, id.vars = c("Friend","Relationship"))
+names(formatData)[3:4]<- c("Movie", "Rating")
+formatData$Rating<-as.numeric(formatData$Rating)
+
+newdata <- na.omit(formatData)
+```
+
+### Analysis, Graphics, & Recommendations
+In order to better interpret the data, I created two graphs, one displaying the data based on the Friend who provided their critique, and other based on the type of Relationship I have with the individual.   
+
+Based on the below graphic, I would recommend A Dog's Way Home to Angelica, Diana, and Canela because they both really liked A Dog's Purpose and The Art of Racing in the Rain. Both movies have a dog as the main character in the movie. For Cassy, Diana, and Marcos, I would recommend another comedy movie such as Coffee & Kareem because they liked Like a Boss and The War with Grandpa.  
+  
+```{r echo=FALSE}
+ggplot(data=newdata, aes(x=Movie, y = Rating, fill = Movie, label = Rating))+
+    geom_bar(stat="identity")+ 
+    facet_wrap(~Friend)+
+    ggtitle("Ratings by Friend")+
+    theme(axis.text.x = element_blank(),plot.title = element_text(hjust=0.5),legend.position = "right")
+
+```
+  
+Furthermore, using the graphic Ratings by Relationship, I can see that my sister's like movies with dogs, so chances are my sister Natasha might like a dog related movies and would recommend A Dog's Purpose, The Art of Racing in the Rain, and A Dog's Way Home in case she hasn't seen them already. My friend, husband and sisters like comedies and would recommend comedies as well to them and my other sister Natasha.
+```{r echo=FALSE}
+ggplot(data=newdata, aes(x=Movie, y = Rating, fill = Movie, label = Rating))+
+    geom_bar(stat="identity")+ 
+    facet_wrap(~Relationship)+
+    ggtitle("Ratings by Relationship")+
+    theme(axis.text.x = element_blank(),plot.title = element_text(hjust=0.5),legend.position = "right")
+
+```
+
+Lastly, we have the average movie ratings pictured below and based on the graphic we can see the comedy movies performed best, followed by a dog related movie. 
+
+```{r echo=FALSE}
+ggplot(data=newdata, aes(x=Movie, y = Rating))+
+  geom_bar(stat = "summary", fun = "mean", fill= "steelblue")+
+  coord_flip()+ggtitle("Average Movie Ratings")
+```
