@@ -1,0 +1,129 @@
+---
+title: "R Character Manipulation and Date Processing"
+author: "Gabriella Martinez"
+date: "2/17/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+#### 1. Provide code that identifies the majors that contain either "DATA" or "STATISTICS" from fivethirtyeight.com’s College Majors dataset.
+
+```{r load_libraries, include=FALSE}
+library(RCurl)
+library(colorspace)
+library(tidyverse)
+library(ggplot2)
+library(dbplyr)
+```
+```{r load_data}
+x <- url("https://raw.githubusercontent.com/fivethirtyeight/data/master/college-majors/majors-list.csv")
+college_majors <- read.csv(x)
+
+majors <- as.matrix.data.frame(college_majors)
+
+grep(pattern = 'STATISTICS', majors, value = TRUE, ignore.case = TRUE)
+grep(pattern = 'DATA', majors, value = TRUE, ignore.case = TRUE)
+
+```
+
+#### 2. Write code that transforms the data below.  
+\n  
+
+[1] "bell pepper"  "bilberry"     "blackberry"   "blood orange"
+
+[5] "blueberry"    "cantaloupe"   "chili pepper" "cloudberry"  
+
+[9] "elderberry"   "lime"         "lychee"       "mulberry"    
+
+[13] "olive"       "salal berry"
+
+```{r}
+#making the data into a list
+x <- list('[1]', "bell pepper",  "bilberry",     "blackberry",   "blood orange",
+
+'[5]', "blueberry",    "cantaloupe",   "chili pepper", "cloudberry",  
+
+'[9]', "elderberry",   "lime",         "lychee",       "mulberry",    
+
+'[13]', "olive",       "salal berry", " ", " ")
+
+#makes the list into a matrix https://www.tutorialspoint.com/how-to-convert-a-list-to-matrix-in-r
+matrix_x <- matrix(unlist(x), ncol = 5, nrow=4, byrow=TRUE)
+
+#removes the first column of the matrix
+matrix_x <- matrix_x[, -1]
+
+#transposes the matrix to then covert into vector that prints the items in order
+vector_x <- as.vector(t(matrix_x))
+
+#removes last two " " from the vector
+head(vector_x, -2)
+
+
+```
+
+
+#### 3. Describe, in words, what these expressions will match:
+```{r list}
+fruits_veg <- c("apple", "banana", "pear", "papaya", "coconut", "cucumber", "jujube", "pepper")
+```
+
+(.)\1\1  
+The (.) captures the first character while \1 and \1 don't perform a task because proper backreferencing command wasn't executed.
+```{r}
+str_view(fruits_veg, "(.)\1\1", match = TRUE)
+```
+(.)(.)\\2\\1  
+The first (.) captures a single character, the second (.) captures a different single character, \\2 backreferences the second character, backreferences the first character.
+```{r}
+str_view(fruits_veg, "(.)(.)\\2\\1", match = TRUE)
+```
+(..)\1  
+The (..) captures two characters together as a group, but command will not match anything because proper exiting and backreferencing was not executed.
+```{r}
+str_view(fruits_veg, "(..)\1", match = TRUE)
+```
+
+(.).\\1.\\1  
+The (.) captures one character, . recognizes another character distinct from the first, \\1 backreferences the first character, . allows for any character, \\1 backreferences the first character again.  
+```{r}
+str_view(fruits_veg, "(.).\\1.\\1", match = TRUE)
+```
+
+(.)(.)(.).*\\3\\2\\1  
+The (.)(.)(.) captures three distinct characters, .* captures any character inlcuding one of those already recorded, \\3\\2\\1 reverses the order of the first three characters identified.
+```{r}
+name <- c("habibah")
+str_view(name, "(.)(.)(.).*\\3\\2\\1", match = TRUE)
+```
+ 
+
+#### 4. Construct regular expressions to match words that:
+
+Start and end with the same character.
+
+```{r}
+names <- c("itati", "anabella", "ariella")
+words_1 <-c("dated", "going", "devised")
+str_view(names, "^(.).*\\1$", match = TRUE)
+str_view(words_1, "^(.).*\\1$", match = TRUE)
+```
+Contain a repeated pair of letters (e.g. "church" contains "ch" repeated twice.)
+```{r}
+words_2 <- c("church", "papaya", "banana", "curcurma")
+str_view(words_2, "(..).*\\1", match = TRUE)
+```
+  
+Contain one letter repeated in at least three places (e.g. "eleven" contains three "e"s.)
+
+```{r}
+words_3 <- c("havana", "banana","papaya", "tallahasee","kissimee")
+str_view(words_3, "(.).*\\1.*\\1", match = TRUE)
+```
+
+Just for fun:
+```{r}
+words_4 <- c("mississippi","tallahasee","kissimee", "abcttxyzllpoik")
+str_view(words_4, "(..*)*\\1", match = TRUE)
+```
