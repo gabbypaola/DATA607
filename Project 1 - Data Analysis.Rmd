@@ -1,0 +1,140 @@
+---
+title: "DATA607- Project 1 - Data Analysis"
+author: "Gabriella Martinez"
+date: "2/24/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r message=FALSE, warning=FALSE}
+library(stringr)
+library(knitr)
+library(tidyverse)
+library(dplyr)
+library(rstudioapi)
+library(googledrive)
+```
+
+### Load Data
+In order to load the data from Blackboard and into R, the txt file was downloaded and then saved to my GitHub account in order to ensure reproducibility.  
+https://github.com/gabbypaola/DATA-607/blob/main/tournamentinfo.txt
+```{r}
+chess_txt <- read.delim("https://raw.githubusercontent.com/gabbypaola/DATA-607/main/tournamentinfo.txt")
+```
+
+This bit of code removes the first two rows while the data is in txt format as they are not essential to the end goal of our project. 
+```{r}
+#removing the first 2 rows in txt format
+chess_txt <- chess_txt[-c(1:2),]
+```
+
+### Convert txt file into data frame
+After removing the rows, the txt then gets converted into a data frame. 
+```{r}
+#converting txt file into data frame
+chess_df <- data.frame(chess_txt)
+
+```
+
+### Preapare the data frame for cleaning
+This chunk removes the rows composed of - originally in the txt file.
+```{r}
+#chess_df <- chess_df[-(1:2),]
+#head(chess_df)
+#indexes every third row starting at 1 
+ind <- seq(1, nrow(chess_df), by=3)
+#removes every third row
+chess_df <- chess_df[-ind, ]
+#removes white space
+#chess_df <- str_replace_all(chess_df, "\\s+")
+                            #, " ")
+```
+
+### Orgnaize the data frame
+Row 1 (odd) contains Player Player Name,  Total Pts,  Result,  Opponent#  
+Row 2 (even) State,  USCF ID,  Preperormance Rating  
+```{r}
+#indexes every even and odd row
+odd <- seq(1, 128, by=2)
+even <- seq(2, 128, by=2)
+#separate odd  and even rows into 2 data frames
+odd_df <- unlist(data.frame(chess_df[odd]))
+even_df <- unlist(data.frame(chess_df[even])) 
+```
+
+### Clean the data using Regex 
+The odd rows contain each player's name, ID, total points, result (W,L,D,H,U,B,and X), and opponent player ID. The data pertaining to the odd rows has been extracted and converted to data types corresponding to it's value. Game results H, U, B, and X have been replaced with 0.
+```{r}
+#odd row df
+#player IDs: 
+id<-unlist(str_extract_all(odd_df,"\\d{1,2} \\| "))
+id<-unlist(str_extract_all(id, "\\d{1,2}"))
+id <- as.integer(id)
+#player names:
+name <-unlist(str_extract_all(odd_df,"\\w+ ?\\w+ \\w+"))
+#result
+result <-unlist(str_extract_all(odd_df,"\\|[A-Z].*" ))
+result <- str_extract_all(result,"[A-Z]")
+#view(result)
+result_m <- matrix(unlist(result),  byrow= TRUE, nrow = length(result))
+results_m <- t(apply(result_m, 1, as.character))
+colnames(results_m) <- c("1st Round", "2nd Round", "3rd Round", "4th Round", "5th Round", "6th Round", "7th Round")
+#total points:
+total_pts <-unlist(str_extract_all(odd_df,"\\d.\\d"))
+total_pts <- as.numeric(total_pts)
+#opponent ID
+opp_ID<-unlist(str_extract_all(odd_df,"\\|[0-9].*"))
+opp_ID<-str_replace_all(opp_ID, "[HUBX]", " 0")
+opp_ID<-str_extract_all(opp_ID,"\\s\\d{1,2}")
+
+```
+
+Next, are the even rows which contain player preperformance rating and state. 
+```{r}
+#preperformance rating:
+pre_r <-unlist(str_extract_all(even_df, "(R:\\s*)(\\d+)"))
+pre_r<-as.numeric(unlist(str_extract_all(pre_r, "(\\d+)")))
+
+#state
+state <-unlist(str_extract_all(even_df, " \\w{2} \\| "))
+state<-unlist(str_extract_all(state, "\\w{2}"))
+```
+
+### Calculate the Average Opponent Rating
+In order to calculate the average opponent rating, opponent ratings (column) for each player (row) was input into a matrix and the average will then be taken for each row.
+Valid Game codes: W (win), D (draw), L (loss) only games with valid game codes count for the calculation of the average. H, U, B and X game codes are invalid and do not have a score associated to them. Invalid ratings will not be counted and input as NA.
+
+Average = Sum of Opponent Preperformance Rating / total # games
+```{r}
+opp_mtrx <- matrix(unlist(opp_ID),  byrow= TRUE, nrow = length(opp_ID))
+opp_mtrx <- t(apply(opp_mtrx, 1, as.numeric))
+
+for (i in 1:nrow(opp_mtrx)) {
+  for (j in 1:ncol(opp_mtrx)) {
+    if (opp_mtrx[i,j] == 0){
+      opp_mtrx[i,j] = NA
+    } else {
+      opp_mtrx[i,j] <- pre_r[opp_mtrx[i,j]]
+    }
+  }
+}
+avg_opp_rating <- round(c(rowMeans(opp_mtrx, na.rm = TRUE)))
+#view(avg_opp_rating)
+```
+
+### Putting it all together and creating a CSV
+Finally, all the data points are combined into one data frame and include the Average Opponent Rating. The resulting data frame is then transformed into a CSV file using the write.csv function which was uploaded to GItHub. As an alternative, it has also been uploaded to google dive using the googledrive package with sharing capabilities.
+
+In order to ensure reproducibility, the resulting CSV File may be accessed via the links below:   
+https://github.com/gabbypaola/DATA-607/blob/main/Project1.csv  
+https://drive.google.com/file/d/1tC7ACqFrSfV_U3UEr7KAGvjPlaqSUo9x/view?usp=sharing
+```{r}
+final_df <- data.frame(id, name, total_pts, state, pre_r, avg_opp_rating)
+colnames(final_df) <- c("Player ID", "Player Name", "Total Points", "State", "Pre Rating", "Average Opponent Rating") 
+#view(final_df)
+head(final_df)
+
+write.csv(final_df,"C:\\Users\\marcosmartinez689\\Documents\\DATA607\\Project1.csv", row.names = TRUE)
+drive_upload('Project1.csv', path = "C:\\Users\\marcosmartinez689\\Documents\\DATA607\\Project1.csv", name = NULL)
+```
