@@ -1,0 +1,130 @@
+---
+title: "Tidying and Transforming Data"
+author: "Gabriella Martinez"
+date: "2/28/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(datasets)
+library(ggplot2)
+library(tidyverse)
+library(RMySQL)
+library(dplyr)
+library(tidyr)
+library(DT)
+library(reactable)
+library(knitr)
+```
+
+```{r echo=FALSE, fig.align="center"}
+knitr::include_graphics(rep('/Users/marcosmartinez689/Documents/DATA607/HW5 Tidying and Transforming Data table jpg.jpg'))
+
+```
+
+The chart above describes arrival delays for two airlines across five destinations.
+
+1. Create a .CSV file (or optionally, a MySQL database!) that includes all of the information above. You’re encouraged to use a “wide” structure similar to how the information appears above, so that you can practice tidying and transformations as described below.
+2. Read the information from your .CSV file into R, and use tidyr and dplyr as needed to tidy
+and transform your data. 
+3. Perform analysis to compare the arrival delays for the two airlines.
+4. Your code should be in an R Markdown file, posted to rpubs.com, and should include narrative
+descriptions of your data cleanup work, analysis, and conclusions. Please include in your
+homework submission:  
+The URL to the .Rmd file in your GitHub repository. and  
+The URL for your rpubs.com web page.
+
+## Load Data from SQL
+Below is the code for loading the SQL database used to create a table replicated from the image above. 
+```{r}
+arr_del = dbConnect(MySQL(),user='data607', password='HWdata607!',dbname='data607hw5',host='localhost')
+#**Note** that the credentials are local to this implementation of MySQL
+ad = dbSendQuery(arr_del, "SELECT * FROM arrival_delays")
+data = fetch(ad)
+```
+Below is my recreation of the table in SQL. Note, the SQL table is missing the blank spaces however, I wanted another experience in using SQL to build and import a table from SQL into R.
+```{r echo=FALSE}
+df1 <- data.frame(data)
+reactable(df1, bordered = TRUE, striped = TRUE, highlight = TRUE)
+```
+
+## Tidy the Data  
+In order to tidy the data, the functions gather and spread were used to transition the destinations from columns into an attribute. Manual cleaning was also done in order to fill in blanks in the original airline column, fix the spelling of Phoenix, uppercase airlines, and capitalize the city names.
+```{r echo=FALSE}
+#fill in the blanks
+df1[2,1]= 'alaska'
+df1[4,1]= 'am west'
+#capitalize, remove _ and fix the misspelling of phoenix from SQL (oops)
+colnames(df1) <- c("Airline", "Arrival Status", "Los Angeles", "Phoenix", "San Diego", "San Francisco", "Seattle")
+df1[,1] = toupper(df1[,1])
+#tidyr
+df1 <-gather(df1, "Destination", "Time", 3:7)
+df1 <- spread(df1, "Arrival Status", "Time")
+colnames(df1)[3:4] <- c("Delayed", "On Time")
+reactable(df1, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE, showPagination = TRUE, pageSizeOptions = c(2, 5, 10), defaultPageSize = 5)
+```
+
+## Transform the Data 
+### Analysis by Airline and Destination
+The below table contains the total flight counts as well as the percentages for each destination and airline that reported a delayed or "on time" flight. Using the sorting capabilities enabled on the Percent Delayed column, we can see the destination with the lowest delay percentages are reported from Phoenix.  
+
+##### Delay Percentages for Airline and Destination
+```{r echo=FALSE}
+df2<- df1 %>%
+  mutate(Total = df1$Delayed + df1$`On Time`, PercentDelayed = round(Delayed / Total * 100, 1), PercentOnTime = round(100 * `On Time` / Total, 2))
+colnames(df2)[6:7] <- c("Percent Delayed", "Percent On Time")
+reactable(df2, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE, showPagination = TRUE, pageSizeOptions = c(2, 5, 10), defaultPageSize = 5)          
+```
+
+### Analysis by Airline
+Based on the below comparison by airline, AM West has more flights than Alaska thus enabling AM West to have a smaller delay ratio than Alaska eventhough the average delay for Alaska is less than that for AM West.
+
+##### Basic Summary Stats by Airline
+```{r echo=FALSE}
+df3a<-df2 %>% 
+  group_by(Airline) %>% 
+  summarise(MeanDelay= mean(Delayed), MinDelay= min(Delayed), MaxDelay= max(Delayed))
+colnames(df3a)[2:4]<- c('Average Delay', 'Minimum Delay', 'Maximum Delay')
+reactable(df3a, bordered = TRUE, striped = TRUE, highlight = TRUE)
+```
+
+##### Delay and On Time Percentages by Airline
+```{r echo=FALSE}
+df3c<-df2 %>% 
+  group_by(Airline) %>%
+  summarise(SumDelay= sum(Delayed), SumOnTime= sum(`On Time`), SumFlights= SumDelay+SumOnTime) %>% 
+  mutate(AirlinePercentDelay = round(SumDelay/SumFlights *100, 2), AirlinePercentOnTime = round(SumOnTime/SumFlights *100, 2))
+colnames(df3c)[2:6]<- c('Total Delay', 'Total On Time', 'Total Flights', 'Airline Percent Delay', 'Arline Percent On Time' ) 
+reactable(df3c, bordered = TRUE, striped = TRUE, highlight = TRUE)
+```
+
+### Analysis by Destination  
+Ironically enough based on the tables below we can see the destination with the highest delay is also the destination with the lowest delay percentage which is Phoenix. This, as in the case mentioned above for AM West, may be attributed to the total amount of flights for Phoenix. Of all destinations, Phoenix has the most amount of flights and a vast majority of its flights are On Time therefore minimizing its reported delay percentage.
+
+##### Basic Summary Stats by Destination
+```{r echo=FALSE}
+df3b<- df2 %>% 
+  group_by(Destination) %>% 
+  summarise(MeanOnTime= mean(`Delayed`), MinOnTime= min(`Delayed`), MaxOnTime= max(`Delayed`))
+colnames(df3b)[2:4]<- c('Average Delay', 'Minimum Delay', 'Maximum Delay' ) 
+reactable(df3b, bordered = TRUE, striped = TRUE, highlight = TRUE)
+```   
+  
+##### Delay and On Time Percentages by Destination
+```{r echo=FALSE}
+df4 <-df2 %>% 
+  group_by(Destination) %>%
+  summarise(SumDelay= sum(Delayed), SumOnTime= sum(`On Time`), SumFlights= SumDelay+SumOnTime) %>% 
+  mutate(DestPercentDelay = round(SumDelay/SumFlights *100, 2), DestPercentOnTime = round(SumOnTime/SumFlights *100, 2))
+colnames(df4)[2:6]<- c('Total Delay', 'Total On Time', 'Total Flights', 'Destination Percent Delay', 'Destination Percent On Time' ) 
+reactable(df4, bordered = TRUE, striped = TRUE, highlight = TRUE)
+#datatable(df4,  class = 'cell-border stripe', rownames = FALSE, 
+          #filter = 'top', options = list(autoWidth = TRUE), 
+          #colnames = c('Total Delays'=2, 'Total On Time'=3, 'Total Flights'=4, 'Percent Delay'=5, 'Percent On Time'=6), caption = 'Arrival Percentages by Destination')
+```
+  
+
+
+
