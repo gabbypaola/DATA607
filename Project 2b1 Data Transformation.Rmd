@@ -1,0 +1,323 @@
+---
+title: "DATA607 Project 2"
+author: "Gabriella Martinez"
+date: "3/11/2021"
+output: html_document
+---
+
+## Data Transformation
+
+## UNICEF: The State of the World’s Children 2019 Statistical Tables-  Table 7 Nutrition {.tabset .tabset-pills}
+
+### Assignment Overview  
+
+The goal of this assignment is to give you practice in preparing different datasets for downstream
+analysis work.
+Your task is to:
+
+1. Choose any three of the “wide” datasets identified in the Week 6 Discussion items. (You may use your own dataset; please don’t use my Sample Post dataset, since that was used in your Week 5 assignment!) For each of the three chosen datasets:
+    + Create a .CSV file (or optionally, a MySQL database!) that includes all of the information included in the dataset.
+    + You’re encouraged to use a “wide” structure similar to how the information appears in the discussion item, so that you can practice tidying and transformations as described below.
+    + Read the information from your .CSV file into R, and use `tidyr` and `dplyr` as needed to tidy and transform your data. [Most of your grade will be based on this step!]
+    + Perform the analysis requested in the discussion post
+    + Your code should be in an R Markdown file, posted to [rpubs.com](https://rpubs.com/] web page), and should include narrative descriptions of your data cleanup work, analysis, and conclusions.
+
+2. Please include in your homework submission, for each of the three chosen datasets:
+    + The URL to the .Rmd file in your GitHub repository, and
+    + The URL for your [rpubs.com](https://rpubs.com/] web page)
+    
+**Discussion Post**
+```{r echo=FALSE, fig.align="center"}
+knitr::include_graphics(rep('/Users/marcosmartinez689/Documents/DATA607/Discussion Post.jpg'))
+```
+
+### Packages
+Below are the packages used for the making of this report.
+```{r setup, message=FALSE}
+library(RCurl)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(reactable)
+library(readr)
+library(tidyverse)
+library(naniar)
+library(openintro)
+```
+
+### Import Data  
+```{r echo=FALSE, fig.align="center"}
+knitr::include_graphics(rep('/Users/marcosmartinez689/Documents/DATA607/Table 7 Nutrition.jpg'))
+```
+
+Below is the code for loading the CSV data from GitHub sourced from UNICEF*. The data was imported using the read_csv from the readr package.
+```{r}
+#Nutrition Table 7
+x <- url("https://raw.githubusercontent.com/gabbypaola/DATA-607/main/Table-7-Nutrition-EN%20(1).csv")
+nutri7 <- read.csv(x)
+```
+
+### Data Manipulation
+
+Before doing any cleaning, the dataframe contained 273 rows and 35 columns. After selecting only relevant rows and columns, we are left with 215 rows and 25 variables. All columns were manually renamed as orginally column names were imported as cells during the loading stage and were removed. 
+```{r}
+#replacing symbols and char defined NAs with NA
+na_strings <- c("-", "–", "NA")
+nutri7 <- nutri7 %>% 
+  replace_with_na_all(condition = ~.x %in% na_strings)
+#keep only relevant columns using select and remove unnecessary rows using anti_join
+nutri7 <- nutri7 %>%  
+  select(c(2:26)) %>% 
+  anti_join(nutri7[c(1:6,209:210,224:273),])
+
+#renaming columns, spaces intended to differentiate table sections
+colnames(nutri7) <- c("Countries and Regions","Low Birth Weight", "Low Birth Weight Notes", "Unweighed at Birth", "Unweighed at Birth Notes",
+                      "Early Breastfeeding", "Early Breastfeeding Notes", "Exclusive Breastfeeding <6 months", "Exclusive Breastfeeding Notes", "Intro to solid, semi-solid or soft foods(6–8 months)", "Intro to solid, semi-solid or soft foods(6–8 months) Notes", 
+                      
+                      "Contintued Breastfeeding All Children", "Contintued Breastfeeding All Children Notes", "Continued Breastfeeding Poorest","Continued Breastfeeding Poorest Notes", "Continued Breastfeeding Richest", "Continued Breastfeeding Richest Notes",
+                      
+                      "Minimum Diet Diversity", "Minimum Diet Diversity Notes", "Minimum Meal Frequency", "Minimum Meal Frequency Notes", "Minimum Acceptable Diet", "Minimum Acceptable Diet Notes", "Zero Vegetable or Fruit consumption", "Zero Vegetable or Fruit Consumption Notes")
+```
+
+```{r echo=FALSE}
+reactable(nutri7, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(5, 10, 25, 50, 100), defaultPageSize = 5)
+```
+
+```{r}
+#separate countries from regions and subset data into different tables based on column data to prep for display
+
+#Countries
+birthweightc <- nutri7[1:202,1:5]
+colnames(birthweightc)[1] <- "Country"
+#view(birthweightc)
+contdbrstfeedc <- nutri7[1:202, c(1, 12:17)]
+colnames(contdbrstfeedc)[1] <- "Country"
+childfeedc <- nutri7[1:202, c(1, 6:11, 18:25)]
+colnames(childfeedc)[1] <- "Country"
+
+#Regions
+birthweightr <- nutri7[203:215, 1:5]
+colnames(birthweightr)[1] <- "Region"
+birthweightr <- birthweightr %>% 
+  filter(`Region` == "Latin America and Caribbean")
+
+contdbrstfeedr <- nutri7[203:215, c(1, 12:17)]
+colnames(contdbrstfeedr)[1] <- "Region"
+contdbrstfeedr <- contdbrstfeedr %>% 
+  filter(`Region` == "Latin America and Caribbean")
+
+childfeedr <- nutri7[203:215, c(1, 6:11, 18:25)]
+colnames(childfeedr)[1] <- "Region"
+childfeedr <- childfeedr %>% 
+  filter(`Region` == "Latin America and Caribbean")
+
+```
+
+### Exploratory Tables and Notes on Data 
+#### {.tabset}
+##### Countries 
+In order to get my bearings on the data, I found it easier to separate the single table in to separate tables based on column headers in the original Excel table and separate Countries from Regions reported. Furthermore, it is useful to note that UNICEF reports data by region in addition to individual countries. Please refer to the Region tab for the Latin America and Caribbean region data tables as reported by UNICEF.   
+**Birth Weight Rate by Country**
+```{r echo=FALSE}
+#Birth Weights
+reactable(birthweightc, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(5, 10, 25, 50, 100), defaultPageSize = 5)
+```
+
+**Continued Breastfeeding Rates (12-23 months) 2013-2018 by Country**
+```{r echo=FALSE}
+#Continued Breastfeeding
+reactable(contdbrstfeedc, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(5, 10, 25, 50, 100), defaultPageSize = 5)
+```
+
+**Infant and Young Child Feeding Diet Rate Details (0-23 months) 2013-2018 by Country**
+```{r}
+#Infant and Youngin Diet
+reactable(childfeedc, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(5, 10, 25, 50, 100), defaultPageSize = 5)
+```
+
+##### Regions
+In terms of our analysis based on the discussion post, we will need to filter the Latin America and Caribbean region to only include data for Latin America. 
+However the columns of interest which are low birth weight, intro to solid food (6-8 months), zero vegetables or fruit (6-23 months) may be seen in the Birth Weights by Region and Infant and Young Child Feeding Diet Details by Region tables below.
+
+**Birth Weight Rates by Region**
+```{r echo=FALSE}
+#Birth Weights
+reactable(birthweightr, bordered = TRUE, striped = TRUE, highlight = TRUE)
+```
+
+**Continued Breastfeeding Rate (12-23 months) 2013-2018 by Region**
+```{r echo=FALSE}
+#Continued Breastfeeding
+reactable(contdbrstfeedr, bordered = TRUE, striped = TRUE, highlight = TRUE)
+```
+
+**Infant and Young Child Feeding Diet Rate Details (0-23 months) 2013-2018 by Region**
+```{r echo=FALSE}
+#Infant and Youngin Diet
+reactable(childfeedr, bordered = TRUE, striped = TRUE, highlight = TRUE)
+```
+
+##### Notes, Defintions, and Data Sources
+Below are details on what each variable in the Notes columns contained in each graph. Definitions of variables follow the notes allow with the UNICEF data sources.  
+**NOTES**	
+– Data not available.  * NAs were introduced in place of - from the original UNICEF table									
+x Data refer to years or periods other than those specified in the column heading. Such data are not included in the calculation of regional and global averages. Estimates from years prior to 2000 are not displayed.  									
+p Based on small denominators (typically 25-49 unweighted cases). No data based on fewer than 25 unweighted cases are displayed.  									
+q Regional estimates for East Asia and Pacific exclude China, Latin America and the Caribbean exclude Brazil, Eastern Europe and Central Asia exclude the Russian Federation.  									
+r Disaggregated data are from different sources than the data presented for all children for the same indicator.  									
+zThe estimate is based on partial data for the most recent survey, therefore modeled estimates are not shown for the individual country but have been used in regional and global estimates.  									
+* Data refer to the most recent year available during the period specified in the column heading.  									
+									
+**DEFINITIONS OF THE INDICATORS**								
+Low birthweight – Percentage of infants weighing less than 2,500 grams at birth.    									
+
+Unweighed at birth – Percentage of births without a birthweight in the data source; Note that (i) estimates from household surveys include live births among women age 15–49 years in the survey reference period (e.g. last 2 years) for which a birthweight was not available from an official document (e.g. health card) or could not be recalled by the respondent at the time of interview and may have been recalculated to count birthweights <250g and >5500g as missing and (ii)  estimates from administrative sources (e.g. Health 
+Management Information Systems) were calculated using numerator data from the country administrative source and denominator data were the number of annual births according to the United Nations Population Division World Population Prospects, 2017 edition. These estimates include unweighed births and weighed births not recorded in the system.  									
+
+Early initiation of breastfeeding – Percentage of children born in the last 24 months who were put to the breast within one hour of birth.  								
+
+Exclusive breastfeeding (<6 months) – Percentage of infants 0-5 months of age who were fed exclusively with breastmilk during the previous day.  								
+
+Continued breastfeeding (12-23 months) – Percentage of children 12-23 months of age who were fed with breastmilk during the previous day.  									
+
+Introduction of solid, semi-solid or soft foods (6–8 months) – Percentage of infants 6-8 months of age who were fed with solid, semi-solid or soft food during the previous day.  									
+
+Minimum Diet Diversity (6–23 months) – Percentage of children 6-23 months of age who received foods from at least 5 out of 8 defined food groups during the previous day.  									
+
+Minimum Meal Frequency (6–23 months) – Percentage of children 6-23 months of age who received solid, semi-solid, or soft foods (but also including milk feeds for non-breastfed children) the minimum number of times or more during the previous day.  								
+
+Minimum Acceptable Diet (6–23 months) – Percentage of children 6-23 months of age who received a minimum acceptable diet during the previous day.  								
+
+Zero vegetable or fruit consumption (6–23 months) – Percentage of children 6-23 months of age who did not consume any vegetables or fruits during the previous day.  								
+									
+**MAIN DATA SOURCES**								
+Low birthweight – Modelled estimates from UNICEF and WHO. Last update: May 2019.  									
+
+Unweighed at birth – Demographic and Health Surveys (DHS), Multiple Indicator Cluster Surveys (MICS), other national household surveys, data from routine reporting systems. Last update: June 2019.  									
+
+Infant and young child feeding (0-23 months) – DHS, MICS and other national household surveys. Last update: June 2019.									
+
+### Analysis
+#### {.tabset}
+##### Data Preparation 
+Based on the discussion post, we are to select only countries in Latin America meaning we must filter the data by countries that are in Latin America. In order to determine which countries are considered Latin American per UNICEF, I referenced the UNICEF website**. As it turns out, UNCIEF groups Latin America and Caribbean together so the next step would be to figure out which countries are Caribbean and remove those to keep only Latin America as UNICEF does not list Latin American countries individually on their site.  
+In order to figure out the Latin American countries from the Latin America and Caribbean Region, I used setdiff and created a dataframe from the resulting vector for later use of left_join. 
+```{r}
+#select countries only in latin america- need to know which are those countries
+#latam and caribbean
+latamandc <- c("Antigua and Barbuda", "Argentina","Anguilla","Barbados","Belize","Bolivia (Plurinational State of)","Brazil","British Virgin Islands", "Chile","Colombia","Costa Rica","Cuba","Dominica","Dominican Republic","Ecuador","El Salvador","Grenada","Guatemala","Guyana","Haiti","Honduras","Jamaica","Mexico","Montserrat","Nicaragua","Panama","Paraguay","Peru","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Suriname","Trinidad and Tobago","Turks and Caicos Islands","Uruguay","Venezuela (Bolivarian Republic of)")
+#caribbean
+carib <-c("Antigua and Barbuda","Barbados","British Virgin Islands","Dominica","Grenada","Montserrat","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Turks and Caicos Islands")
+latam <- setdiff(latamandc, carib)
+latdf <- data.frame(latam)
+colnames(latdf)[1] <- "Country"
+```
+
+Next, a new table was created using only the columns required from the discussion instead of using a filter function, left_join was used to filter the Latin American countries. As.numeric was also used in order to convert the character types of the columns to prepare for analysis.
+```{r}
+#post calls for low birth weight, intro to solid food(6-8mo), zero vegetables or fruit(6-23mo)
+latbl <- nutri7[1:202, c(1:2,10,24)]
+colnames(latbl)[1] <- "Country"
+#filters only latam countries
+latdf <- left_join(latdf, latbl, by = c("Country"= "Country"), )
+#converts chr vars to dbl
+latdf$`Low Birth Weight` <- as.numeric(latdf$`Low Birth Weight`)
+latdf$`Intro to solid, semi-solid or soft foods(6–8 months)` <- as.numeric(latdf$`Intro to solid, semi-solid or soft foods(6–8 months)`)
+latdf$`Zero Vegetable or Fruit consumption` <- as.numeric(latdf$`Zero Vegetable or Fruit consumption`)
+glimpse(latdf)
+```
+
+
+Now we are ready to conduct the linear regression model correlation assessments using the lm function. Two linear regression models were made using the three variables specified where Low Birth Weight is the predictor variable Intro to solid, semi-solid or soft foods as well as Zero Vegetable or Fruit consumption are the response variables. 
+```{r}
+#response/ dependent variable (y): intro to solid...
+#predictor / independent variable (x): low birth weight
+lm_1 <- lm(`Intro to solid, semi-solid or soft foods(6–8 months)` ~ `Low Birth Weight`, data= latdf)
+
+#response/ dependent variable (y): zero fruit...
+#predictor / independent variable (x): low birth weight
+lm_2 <- lm(`Zero Vegetable or Fruit consumption` ~ `Low Birth Weight`, data= latdf)
+```
+
+
+```{r eval=FALSE, include=FALSE}
+# corlat <- latdf[, 2:4]
+# corlat <-na.omit(corlat, cols= c(1:3))
+# latmatrix <- data.matrix(corlat, rownames.force = NA)
+# view(latmatrix)
+# 
+# cormat<-signif(cor(corlat),2)
+# 
+# cormat
+# col<- colorRampPalette(c("blue", "white", "red"))(33)
+# heatmap(latmatrix)
+
+```
+
+
+##### Linear Regresson Model: Statistics
+**Low Birth Weight as predictor variable and Intro to solid, semi-solid or soft foods as response variable statistics:**  
+Correlation Coefficient: -1.98  
+Linear Model: y = -1.98x + 102.36
+```{r}
+summary(lm_1)
+plot(lm_1)
+```
+
+**Low Birth Weight as predictor variable and Zero Vegetable or Fruit consumption as response variable statistics:**  
+Correlation Coefficient: 1.44  
+Linear Model: y = 1.44x + 10.32
+```{r}
+summary(lm_2)
+plot(lm_2)
+```
+
+
+##### Linear Regression Model: Table and Graphs  
+  
+```{r echo=FALSE}
+reactable(latdf, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(5, 10, 20), defaultPageSize = 5)
+```
+
+**Low Birth Weight as predictor variable and Intro to solid, semi-solid or soft foods as response variable**  
+  
+```{r echo=FALSE, fig.align="center"}
+#response/ dependent variable (y): intro to solid...
+#predictor / independent variable (x): low birth weight
+par(mar = c(3.5, 4, 1, 0.5), las = 1, mgp = c(2.5, 0.7, 0), 
+    cex.lab = 1.5, cex.axis = 1.5)
+plot(`Intro to solid, semi-solid or soft foods(6–8 months)` ~ `Low Birth Weight`, data= latdf, 
+     pch = 19, col = COL[1,2], 
+     xlab = "Low Birth Weight %", ylab = "Intro solid, semisolid or soft food(6–8 mo)%", axes = FALSE)
+axis(1)
+axis(2, at = seq(20, 80, 20))
+box()
+abline(lm_1, col = COL[2], lwd = 2)
+```
+  
+**Low Birth Weight as predictor variable and Zero Vegetable or Fruit consumption as response variable**  
+  
+```{r echo=FALSE, fig.align="center"}
+#response/ dependent variable (y): zero vegetable
+#predictor / independent variable (x): low birth weight
+par(mar = c(3.5, 4, 1, 0.5), las = 1, mgp = c(2.5, 0.7, 0), 
+    cex.lab = 1.5, cex.axis = 1.5)
+plot(`Zero Vegetable or Fruit consumption` ~ `Low Birth Weight`, data= latdf, 
+     pch = 19, col = COL[1,2], 
+     xlab = "Low Birth Weight %", ylab = "Zero Vegetable or Fruit Diet (6-23 mo) %", axes = FALSE)
+axis(1)
+axis(2, at = seq(20, 80, 20))
+box()
+abline(lm_2, col = COL[2], lwd = 2)
+```
+
+##### Conclusion  
+In conclusion, based on the results of the two linear regression models using the three variables Low Birth Weight as the predictor variable Intro to solid, semi-solid or soft foods and as Zero Vegetable or Fruit consumption as the response variables indicate the following:
+
+Low Birth Rate and the introduction of solids, semi-solids and soft foods indicate a negative correlation with a correlation coefficient of -1.98 also denoted by the negative slope in the Linear Regression Model graph. Countries with higher amount of low birth weight rates report smaller introduction rates of solids and related foods into diets of 6-8 month olds. A possible explanation of this result may be that low weight baby diets may consist of formula, breast milk, or other sustenance.  
+
+Low Birth Rate and Zero Vegetable or Fruit consumption indicate a positive correlation with a correlation coefficient of 1.44 also denoted by the positive slope in the Linear Regression Model graph. Countries with higher amount of low birth weight rates report higher rates of zero vegetable or fruit consumption among 6-23 month old babies. As in the above case, the possible reason for this may also be attributed to low weight babies spending a prolonged time on formula, breast milk, or another source of supplementary nourishment. 
+
+^[* *The state of the world's CHILDREN 2019 statistical tables.* (2019, November 4). https://data.unicef.org/resources/dataset/sowc-2019-statistical-tables/. ]
+^[** *Information by country - Latin America and the Caribbean - LAC.* UNICEF. https://www.unicef.org/infobycountry/latinamerica.html. ]
+^[*** *Countries in the Caribbean area.* UNICEF. (2004, January 14). https://www.unicef.org/infobycountry/cao_18976.html. ]

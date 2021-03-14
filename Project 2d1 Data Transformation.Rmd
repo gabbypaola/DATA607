@@ -1,0 +1,226 @@
+---
+title: "DATA607 Project 2"
+author: "Gabriella Martinez"
+date: "3/13/2021"
+output: html_document
+---
+## Data Transformation
+
+## UNICEF: The State of the World’s Children 2019 Statistical Tables-  Table 1 Demographics {.tabset .tabset-pills}
+
+### Assignment Overview  
+
+The goal of this assignment is to give you practice in preparing different datasets for downstream
+analysis work.
+Your task is to:
+
+1. Choose any three of the “wide” datasets identified in the Week 6 Discussion items. (You may use your own dataset; please don’t use my Sample Post dataset, since that was used in your Week 5 assignment!) For each of the three chosen datasets:
+    + Create a .CSV file (or optionally, a MySQL database!) that includes all of the information included in the dataset.
+    + You’re encouraged to use a “wide” structure similar to how the information appears in the discussion item, so that you can practice tidying and transformations as described below.
+    + Read the information from your .CSV file into R, and use `tidyr` and `dplyr` as needed to tidy and transform your data. [Most of your grade will be based on this step!]
+    + Perform the analysis requested in the discussion post
+    + Your code should be in an R Markdown file, posted to [rpubs.com](https://rpubs.com/] web page), and should include narrative descriptions of your data cleanup work, analysis, and conclusions.
+
+2. Please include in your homework submission, for each of the three chosen datasets:
+    + The URL to the .Rmd file in your GitHub repository, and
+    + The URL for your [rpubs.com](https://rpubs.com/] web page)
+    
+**Discussion Post**
+```{r echo=FALSE, fig.align="center"}
+knitr::include_graphics(rep('/Users/marcosmartinez689/Documents/DATA607/Discussion Post.jpg'))
+```
+
+### Packages
+Below are the packages used for the making of this report.
+```{r setup, message=FALSE}
+library(RCurl)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(reactable)
+library(readr)
+library(tidyverse)
+library(naniar)
+library(openintro)
+library(forcats)
+library(eeptools)
+```    
+### Import Data  
+```{r echo=FALSE, fig.align="center"}
+knitr::include_graphics(rep('/Users/marcosmartinez689/Documents/DATA607/Table 1.jpg'))
+```
+
+Below is the code for loading the CSV data from GitHub sourced from UNICEF*. The data was imported using the read_csv from the readr package.
+```{r}
+#Demographics Table 1
+x <- url("https://raw.githubusercontent.com/gabbypaola/DATA-607/main/Table-1-Demographics-EN-1%20(3).csv")
+demo <- read.csv(x)
+```
+
+### Data Manipulation
+
+Before doing any cleaning, the dataframe contained 243 rows and 36 columns. After selecting only relevant rows and columns, we are left with  202 rows and 18 variables. All columns were manually renamed as originally column names were imported as cells during the loading stage and were removed. The replace_with_na_all function was used to replace special characters introduced in place of NA. Select and slice were also used to slice and dice the data to my liking. Note columns were removed as they were verified as NA columns.
+
+```{r message=FALSE, warning=FALSE}
+#replacing symbols and char defined NAs with NA
+na_strings <- c("-", "NA", "?", " ? ")
+demo <- demo %>% 
+  replace_with_na_all(condition = ~.x %in% na_strings)
+#keep columns with select, remove rows with anti_join using dplyr
+odd_indexes<-seq(3,33,2)
+demo <- demo %>%  
+  select(c(2:35))%>% 
+  slice(c(6:207, 210:222)) %>% 
+  select(-odd_indexes)
+
+colnames(demo) <- c("Countries and Regions", "Total Population (thousands) 2018", "Population Under 18 (thousands) 2018", "Population Under 5 (thousands) 2018",
+                    "Annual Populations Growth Rate % 2000-2018",  "Annual Populations Growth Rate % 2018-2030",
+                    "Annual number of births (thousands) 2018",  "Total fertility  (live births per woman) 2018", 
+                    "Life expectancy at birth 1970",  "Life expectancy at birth 2000",  "Life expectancy at birth 2018", 
+                    "Dependency Ratio Total 2018",  "Dependency Ratio Child 2018", "Dependency Ratio Old Age 2018",
+                    "Proportion of urban population (%) 2018",  
+                    "Annual growth rate of urban population 2000-2018",  "Annual growth rate of urban population 2018-2030", 
+                    "Net migration rate (per 1,000 population) 2015−2020")
+reactable(demo, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(5, 10, 25, 50), defaultPageSize = 5)
+```
+
+
+```{r include=FALSE}
+#Regrouping data for exploratory tables
+#by Country
+countrypop <- demo %>%  
+  select(c(1:8))%>% 
+  slice(c(1:202)) 
+colnames(countrypop)[1] <- "Country"
+colifexdep <- demo %>% 
+  select(c(1, 9:14))%>% 
+  slice(c(1:202))  
+colnames(colifexdep)[1] <- "Country"
+urbancntry <- demo %>%
+  select(c(1, 15:18))%>% 
+  slice(c(1:202)) 
+colnames(urbancntry)[1] <- "Country"
+#by Region
+regpop <- demo %>%  
+  select(c(1:8))%>% 
+  slice(c(203:215)) 
+colnames(regpop)[1] <- "Region"
+relifexdep <- demo %>% 
+  select(c(1, 9:14))%>% 
+  slice(c(203:215))  
+colnames(relifexdep)[1] <- "Region"
+urbanreg <- demo %>%
+  select(c(1, 15:18))%>% 
+  slice(c(203:215)) 
+colnames(urbanreg)[1] <- "Region"
+```
+
+### Exploratory Tables and Notes on Data
+#### {.tabset}
+##### Countries 
+
+**2018 Population (thousands), Annual Population Growth Rates, 2018 Annual number of births (thousands), and 2018 Total fertility  (live births per woman)**
+```{r echo=FALSE}
+reactable(countrypop, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(5, 10, 25, 50, 100), defaultPageSize = 5)
+```
+**2018 Dependency ratio (%)**
+```{r echo=FALSE}
+reactable(colifexdep, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(5, 10, 25, 50, 100), defaultPageSize = 5)
+```
+
+
+**Urban Population, Urban growth Rates, and Migration Rates**
+```{r echo=FALSE}
+reactable(urbancntry, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(5, 10, 25, 50, 100), defaultPageSize = 5)
+```
+
+
+##### Regions
+**2018 Population (thousands), Annual Population Growth Rates, 2018 Annual number of births (thousands), and 2018 Total fertility  (live births per woman)**
+```{r echo=FALSE}
+reactable(regpop , bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(5, 10, 25, 50, 100), defaultPageSize = 5)
+```
+**2018 Dependency ratio (%)**
+```{r echo=FALSE}
+reactable(relifexdep, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(5, 10, 25, 50, 100), defaultPageSize = 5)
+```
+
+
+**Urban Population, Urban growth Rates, and Migration Rates**
+```{r echo=FALSE}
+reactable(urbanreg, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(5, 10, 25, 50, 100), defaultPageSize = 5)
+```
+
+
+
+##### Notes, Defintions, and Data Sources
+**NOTES**							
+− Data not available.							
+α Based on medium-fertility variant projections.							
+Regional and global values are based on more countries and areas than listed here. Therefore, country values don't add up to the corresponding regional values and global value.							
+							
+**DEFINITIONS OF THE INDICATORS**						
+Annual population growth rate – Average exponential rate of growth of the population over one year.  It is calculated as ln(Pt/P0)/t where t is the length of the period. It is expressed as a percentage.							
+Total fertility – The average number of live births a hypothetical cohort of women would have at the end of their reproductive period if they were subject during their whole lives to the fertility rates of a given period and if they were not subject to mortality. It is expressed as live births per woman.							
+Dependency ratios – The total dependency ratio is the ratio of the sum of the population aged 0-14 and that aged 65+ to the population aged 15-64. The child dependency ratio is the ratio of the population aged 0-14 to the population aged 15-64. The old-age dependency ratio is the ratio of the population aged 65 years or over to the population aged 15-64. All ratios are presented as number of dependants per 100 persons of working age (15-64).							
+Life expectancy at birth – Number of years newborn children would live if subject to the mortality risks prevailing for the cross section of population at the time of their birth.							
+Proportion of urban population – Urban population as a percentage of the total population.							
+Net migration rate – The number of immigrants minus the number of emigrants over a period, divided by the person-years lived by the population of the receiving country over that period. It is expressed as net number of migrants per 1,000 population.							
+							
+**MAIN DATA SOURCES**					
+All demographic data – United Nations, Department of Economic and Social Affairs, Population Division (2019). World Population Prospects 2019, Online Edition. Rev. 1. Proportion of urban population for regions and growth rates for total and urban population calculated by UNICEF.							
+
+
+
+### Analysis
+#### {.tabset}
+##### Data Preparation 
+In preparation to create the data visualizations on the next tab, the data was first subset to only include the variables of interest using the previously subset Population by Region table in an earlier tab. Using the glimpse function, I noticed the variables were in chr type and needed to be converted to dbl in order to conduct calculations. The as.numeric function was used on the Annual Population Growth rate where as decomma from the eetools library was used to convert the Total Population chr variable in order to remove the commas and conver to dbl.   
+Next, in order to calculate the Estimated Population for 2021 the below formula was used within a mutate function in order to create a new column:  
+("Total Population (thousands) 2018") * ("Annual Populations Growth Rate % 2018-2030" * 1.01)*3)  
+Lastly, arrange was used in order to arrange the resulting column in descending order.
+
+```{r}
+mutregpop <- regpop %>% 
+  select(1:2,6) %>% 
+  slice(-13)
+#glimpse(mutregpop)
+#convert chr to bdl
+mutregpop$`Annual Populations Growth Rate % 2018-2030` <- as.numeric(mutregpop$`Annual Populations Growth Rate % 2018-2030`)
+#convert chr w/ , to dbl
+mutregpop$`Total Population (thousands) 2018` <- decomma(mutregpop$`Total Population (thousands) 2018`)
+
+mutregpop <- mutregpop %>% 
+  mutate(estpop= round((`Total Population (thousands) 2018`)*(`Annual Populations Growth Rate % 2018-2030`*1.01)*3)) %>% 
+  arrange(desc(estpop))
+colnames(mutregpop)[4] <- "Estimated Population (thousands) 2021"
+head(mutregpop)
+```
+
+##### Table and Graphs
+Below are the table and graphs in order to visualize the data. Based on the bar plots created using ggplot, we can easily see which regions exhibit the highest estimated 2021 population without having to reference the table to verify the actual number. GGplot was used in conjunction with its associated fct_reorder in order to organzied the bar plot; coord_flip() was used to flip the bars.
+```{r echo=FALSE}
+reactable(mutregpop, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(5, 10, 15), defaultPageSize = 5)
+```
+**2018 Total Population (thousands) by UNICEF Defined Region**
+```{r echo=FALSE, fig.align="center"}
+mutregpop %>%
+ ggplot(aes(fct_reorder(`Region`,`Total Population (thousands) 2018`), `Total Population (thousands) 2018`))+
+  geom_bar(stat="identity", fill="#f68060", alpha=.6, width=.4) +
+  coord_flip() +
+  xlab("") 
+```
+**2021 Population Estimate (thousands) by UNICEF Defined Region**
+```{r echo=FALSE, fig.align="center"}
+mutregpop %>%
+ ggplot(aes(fct_reorder(`Region`,`Estimated Population (thousands) 2021`), `Estimated Population (thousands) 2021`))+
+  geom_bar(stat="identity", fill="#f68060", alpha=.6, width=.4) +
+  coord_flip() +
+  xlab("") 
+```
+
+##### Conclusion  
+In conclusion, using the bar graph we can easily see which region exhibits the highest estimated 2021 population without having to reference the table to verify the actual number. Sub-Saharan Africa, Least developed countries, and South Asia are the top three countries exhibiting the highest estimated populations in 2021 based on their Total 2018 Population and Growth Rate as reported by UNICEF. UNICEF region defintions may be found on their website: https://data.unicef.org/regionalclassifications/ **.
+
+^[* *The state of the world's CHILDREN 2019 statistical tables.* (2019, November 4). https://data.unicef.org/resources/dataset/sowc-2019-statistical-tables/. ]
+^[** *REGIONAL CLASSIFICATIONS.* UNICEF DATA. (2018, June 29). https://data.unicef.org/regionalclassifications/. ]

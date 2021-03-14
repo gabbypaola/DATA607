@@ -1,0 +1,231 @@
+---
+title: "DATA607 Project 2"
+author: "Gabriella Martinez"
+date: "3/9/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+## Data Transformation
+
+## UNICEF: The State of the World’s Children 2019 Statistical Tables-  Table 10 Education {.tabset .tabset-pills}
+
+### Assignment Overview  
+
+The goal of this assignment is to give you practice in preparing different datasets for downstream
+analysis work.
+Your task is to:
+
+1. Choose any three of the “wide” datasets identified in the Week 6 Discussion items. (You may use your own dataset; please don’t use my Sample Post dataset, since that was used in your Week 5 assignment!) For each of the three chosen datasets:
+    + Create a .CSV file (or optionally, a MySQL database!) that includes all of the information included in the dataset.
+    + You’re encouraged to use a “wide” structure similar to how the information appears in the discussion item, so that you can practice tidying and transformations as described below.
+    + Read the information from your .CSV file into R, and use `tidyr` and `dplyr` as needed to tidy and transform your data. [Most of your grade will be based on this step!]
+    + Perform the analysis requested in the discussion post
+    + Your code should be in an R Markdown file, posted to [rpubs.com](https://rpubs.com/] web page), and should include narrative descriptions of your data cleanup work, analysis, and conclusions.
+
+2. Please include in your homework submission, for each of the three chosen datasets:
+    + The URL to the .Rmd file in your GitHub repository, and
+    + The URL for your [rpubs.com](https://rpubs.com/] web page)
+
+**Discussion Post**
+```{r echo=FALSE, fig.align="center"}
+knitr::include_graphics(rep('/Users/marcosmartinez689/Documents/DATA607/Discussion Post.jpg'))
+```
+
+### Packages
+Below are the packages used for the making of this report.
+```{r message=FALSE, warning=FALSE}
+library(RCurl)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(reactable)
+library(readr)
+library(tidyverse)
+library(openintro)
+```
+
+### Load the Data 
+
+Below is an image of the original dataset. As you can see there are several columns which seem to be separated into three distinct tables, Equitable Acess, Completion, and Learning. These tables will be extracted and displayed in the Exploratory Tables tab.
+```{r echo=FALSE, fig.align="center"}
+knitr::include_graphics(rep('/Users/marcosmartinez689/Documents/DATA607/Project 2 Education Dataset.jpg'))
+```
+
+ 
+This  is the code for loading the CSV data from GitHub sourced from UNICEF*.
+
+```{r}
+x <- url("https://raw.githubusercontent.com/gabbypaola/DATA-607/main/Table-10-Education-EN.csv")
+unicef_education <- read.csv(x)
+```
+
+
+### Data Manipulation
+After removing unnecessary rows, columns, replacing characters and column names below shows the Education data from UNICEF. The table is [202x35], 202 rows and 35 columns without removing all NA values or blanks.
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+unicef_education[unicef_education == "?"] <- NA
+odd_indexes<-seq(3,17,2)
+unicef_education = select(unicef_education, -odd_indexes)
+unicef_education <- unicef_education[7:208, c(-35,-37, -38)]
+head(unicef_education)
+colnames(unicef_education) <- c("Country", "Pre-Primary Male", "Pre-Primary Female", "e:Primary Male", "e:Primary Female", "e:LowerSecondary Male", "e:LowerSecondary Female", "e:UpperSecondary Male", "e:UpperSecondary Female",
+                           
+                                "Primary Male", "Primary MaleException", "Primary Female", "Primary FemaleException", "LowerSecondary Male", "LowerSecondary Male Exception", "LowerSecondary Female", "LowerSecondary Female Exception", "UpperSecondary Male", "UpperSecondary Male Exception", "UpperSecondary Female", "UpperSecondary Female Exception",
+                           
+                                "Grade2-3 Reading", "Grade2-3 Reading Exception", "Grade2-3 Math", "Grade2-3 Math Exception", "PrimarySchool Reading", "PrimarySchool Reading Exception", "PrimarySchool Math", "PrimarySchool Math Exception", "LowerSecondary Reading", "LowerSecondary Reading Exception", "LowerSecondary Math", "LowerSecondary Math Exception", "15-24 Year old Male Literacy Rate", "15-24 Year old Female Literacy Rate")
+
+reactable(unicef_education, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(5, 10, 25, 50), defaultPageSize = 5)
+```
+
+```{r}
+equitable_access <- unicef_education[, c("Country", "Pre-Primary Male", "Pre-Primary Female", "e:Primary Male", "e:Primary Female", "e:LowerSecondary Male", "e:LowerSecondary Female", "e:UpperSecondary Male", "e:UpperSecondary Female")]
+
+colnames(equitable_access) <- c("Country", "Pre-Primary Male", "Pre-Primary Female", "Primary Male", "Primary Female", "LowerSecondary Male", "LowerSecondary Female", "UpperSecondary Male", "UpperSecondary Female")
+
+equitable_access<-equitable_access%>% 
+  gather("Grade Level", "Out of School Rate", 2:9) %>% 
+  separate("Grade Level", c("Grade Level", "Gender"), sep = " ")
+equitable_access<-equitable_access%>% 
+  arrange(equitable_access$Country, bygroup= FALSE)
+
+```
+
+```{r}
+completion <- unicef_education[, c("Country","Primary Male", "Primary MaleException", "Primary Female", "Primary FemaleException", "LowerSecondary Male", "LowerSecondary Male Exception", "LowerSecondary Female", "LowerSecondary Female Exception", "UpperSecondary Male", "UpperSecondary Male Exception", "UpperSecondary Female", "UpperSecondary Female Exception")]
+head(completion)
+
+completion <- unite(completion, "Primary Male", c(2:3), remove= TRUE)
+completion <- unite(completion, "Primary Female", c(3:4), remove= TRUE)
+completion <- unite(completion, "LowerSecondary Male", c(4:5), remove= TRUE)
+completion <- unite(completion, "LowerSecondary Female", c(5:6), remove= TRUE)
+completion <- unite(completion, "UpperSecondary Male", c(6:7), remove= TRUE)
+completion <- unite(completion, "UpperSecondary Female", c(7:8), remove= TRUE)
+
+completion <- completion %>% 
+  gather("Grade Level", "Completion Rate", 2:7) %>% 
+  separate("Completion Rate", c("Completion Rate", "Completion Rate Exception Indicator**"), sep = "_") %>% 
+  separate("Grade Level", c("Grade Level", "Gender"), sep = " ")
+completion<-completion%>% 
+  arrange(completion$Country, bygroup= FALSE)
+
+learning_outomes <- unicef_education[,c("Country","Grade2-3 Reading", "Grade2-3 Reading Exception", "Grade2-3 Math", "Grade2-3 Math Exception", "PrimarySchool Reading", "PrimarySchool Reading Exception", "PrimarySchool Math", "PrimarySchool Math Exception", "LowerSecondary Reading", "LowerSecondary Reading Exception", "LowerSecondary Math", "LowerSecondary Math Exception", "15-24 Year old Male Literacy Rate", "15-24 Year old Female Literacy Rate")]
+
+learning_outomes <- unite(learning_outomes, "Grade2-3 Reading", c(2:3), remove= TRUE) 
+learning_outomes <- unite(learning_outomes, "Grade2-3 Math", c(3:4), remove= TRUE)
+learning_outomes <- unite(learning_outomes, "PrimarySchool Reading", c(4:5), remove= TRUE) 
+learning_outomes <- unite(learning_outomes, "PrimarySchool Math", c(5:6), remove= TRUE) 
+learning_outomes <- unite(learning_outomes, "LowerSecondary Reading", c(6:7), remove= TRUE)
+learning_outomes <- unite(learning_outomes, "LowerSecondary Math", c(7:8), remove= TRUE)
+
+learning_outcomes <- learning_outomes %>% 
+  gather("Grade Level", "Minmum Proficiency Level Proportion", 2:7)%>% 
+ separate("Minmum Proficiency Level Proportion", c("Minmum Proficiency Level Proportion", " Learning Outcome Exception Indicator**"), sep = "_") %>% 
+  separate("Grade Level", c("Grade Level", "Subject"), sep = " ") %>% 
+  arrange(Country, bygroup= FALSE) 
+```
+
+### Exploratory Tables
+#### {.tabset}
+##### Equitable Access: Out of School Rates for 2012-2018
+```{r echo=FALSE}
+reactable(equitable_access, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(10, 25, 50, 100), defaultPageSize = 10)
+```
+
+##### Completion Rates for 2012-2018**
+```{r echo=FALSE}
+reactable(completion, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(10, 25, 50, 100), defaultPageSize = 10)
+```
+##### Learning Outcomes for 2010-2018**
+```{r echo=FALSE}
+reactable(learning_outcomes, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(10, 25, 50, 100), defaultPageSize = 10)
+```
+### Analysis
+#### {.tabset}
+##### Linear Regression Model: Data Manipulation
+
+```{r}
+#Female & LowerSec
+joined_tibble <- left_join(equitable_access, learning_outcomes, by = c("Country"= "Country"))
+view(joined_tibble)
+
+joined_tibble$`Out of School Rate` <- as.numeric(joined_tibble$`Out of School Rate`)
+joined_tibble$`15-24 Year old Female Literacy Rate` <- as.numeric(joined_tibble$`15-24 Year old Female Literacy Rate`)
+
+joined_tibble <- joined_tibble %>% 
+  select(-c(5,7:10)) %>% 
+  filter(`Grade Level.x` == "LowerSecondary",`Gender` == "Female")%>%
+  group_by(Gender)%>% 
+  arrange(`Out of School Rate`) %>% distinct()
+
+
+joined_tibble <-na.omit(joined_tibble, cols= c("Out of School Rate","15-24 Year old Female Literacy Rate"))
+#response/ dependent variable (y): lit rate
+#predictor / independent variable (x): out of school rate
+m_score <- lm(`15-24 Year old Female Literacy Rate` ~ `Out of School Rate`, data= joined_tibble)
+
+#MALE & LowerSec
+joined_tibble2 <- left_join(equitable_access, learning_outcomes, by = c("Country"= "Country"))
+
+joined_tibble2$`Out of School Rate` <- as.numeric(joined_tibble2$`Out of School Rate`)
+joined_tibble2$`15-24 Year old Male Literacy Rate` <- as.numeric(joined_tibble2$`15-24 Year old Male Literacy Rate`)
+
+joined_tibble2 <- joined_tibble2 %>% 
+  select(-c(6:10)) %>% 
+  filter(`Grade Level.x` == "LowerSecondary",`Gender` == "Male")%>%group_by(Gender)%>% 
+  arrange(`Out of School Rate`) %>% distinct()
+
+joined_tibble2 <-na.omit(joined_tibble2, cols= c("Out of School Rate","15-24 Year old Male Literacy Rate"))
+
+#response/ dependent variable (y): lit rate
+#predictor / independent variable (x): out of school rate
+m_score2 <- lm(`15-24 Year old Male Literacy Rate` ~ `Out of School Rate`, data= joined_tibble2)
+```
+
+
+##### Linear Regression Model: Tables and Graphs
+
+**Female Out of Lower Secondary School Rates and 15-24 Year old Female Literacy Rates by Country**
+```{r echo=FALSE, fig.align="center", message=FALSE, warning=FALSE}
+reactable(joined_tibble, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(10, 25, 50, 100), defaultPageSize = 5)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE,  fig.align="center"}
+par(mar = c(3.5, 4, 1, 0.5), las = 1, mgp = c(2.5, 0.7, 0), 
+    cex.lab = 1.5, cex.axis = 1.5)
+plot(`15-24 Year old Female Literacy Rate` ~ `Out of School Rate`, data= joined_tibble, 
+     pch = 19, col = COL[1,2], 
+     xlab = "Female Out of Lower Secondary School Rate", ylab = "15-24 Year old Female Literacy Rate", axes = FALSE)
+axis(1)
+axis(2, at = seq(20, 80, 20))
+box()
+abline(m_score, col = COL[2], lwd = 2)
+```
+
+**Male Out of Lower Secondary School Rates and 15-24 Year old Male Literacy Rates by Country**
+```{r echo=FALSE, message=FALSE, warning=FALSE,  fig.align="center"}
+reactable(joined_tibble2, bordered = TRUE, striped = TRUE, highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, showPagination = TRUE, pageSizeOptions = c(10, 25, 50, 100), defaultPageSize = 5)
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE,  fig.align="center"}
+par(mar = c(3.5, 4, 1, 0.5), las = 1, mgp = c(2.5, 0.7, 0), 
+    cex.lab = 1.5, cex.axis = 1.5)
+plot(`15-24 Year old Male Literacy Rate` ~ `Out of School Rate`, data= joined_tibble2, 
+     pch = 19, col = COL[1,2], 
+     xlab = "Male Out of Lower Secondary School Rate", ylab = "15-24 Year old Male Literacy Rate", axes = FALSE)
+axis(1)
+axis(2, at = seq(20, 80, 20))
+box()
+abline(m_score2, col = COL[2], lwd = 2)
+```
+
+##### Conclusion
+After reviewing the data for Table 10: Education from UNICEF, I wanted to answer the below question:  
+Do higher out of lower secondary school rates indicate lower literacy rates in males and females?  
+Prior to creating the linear regression model on the data, I figured the slope of the line resulting from the model has to be negative because as the rate for students reported out of school increases, then the literacy rates should also show a decrease. The linear regression model plots confirm this is true.
+
+
+^[* *The state of the world's CHILDREN 2019 statistical tables.* (2019, November 4). https://data.unicef.org/resources/dataset/sowc-2019-statistical-tables/. ]
+^[** Data refer to the most recent year available during the period specified in the heading.]
