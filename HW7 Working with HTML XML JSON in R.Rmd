@@ -1,0 +1,136 @@
+---
+title: "DATA607 Assignment 7"
+author: "Gabriella Martinez"
+date: "3/19/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+## Working with XML and JSON in R {.tabset .tabset-pills}
+
+### Assignment Overview 
+The goal of this assignment is to give you practice in working with XML and JSON in R.
+Your task is to:
+  
+* Pick three  of your favorite books on one of your favorite subjects where at least one of the books has more than one author. Each book should include the title, authors, and two or three other attributes that you find interesting
+* Create an HTML, XML, and JSON file using the data.
+* Load the data into R in three separate data frames.
+* Are the three data frames identical?
+
+### Decisions, Descisions... 
+To get started on this assignment, I needed to apply the appropriate filters to my memory's museum of books that met the requirement of the first bullet point. Also made me realize I should start reading some more. The books used for this project are listed below and the additional attributes, Genre and Year were obtainted from [Good Reads](https://www.goodreads.com/).  
+
+* *Yes!: 50 Scientifically Proven Ways to Be Persuasive* 
+- *The Power of Positive Thinking*
++ *Grit*
+
+### Package set up
+Below is the list of packages used for the making of this assignment.
+```{r message=FALSE, warning=FALSE}
+library(RCurl)
+library(htmltab)
+library(httr)
+library(jsonlite)
+library(flatxml)
+library(dplyr)
+library(tidyr)
+library(arsenal)
+library(useful)
+library(reactable)
+```
+
+### Creating the HTML, JSON, and XML tables
+In order to create the HTML, JSON, and XML files, I did some searching and found helpful most of all, quick guides on how to make each type. The guides and tutorials recommended Windows native Notepad, as well as Notepad++ as the source system to use to create the files. Contrary to the tutorials, I used Visual Studio Code to create my files and "save as" the required formats.  In order to make the files available on the web, they were uploaded to my GitHub for reproducibility.
+As noted below, the easiest table to create was the JSON table as it requires less formatting and less lines of code in comparison to both the HTML and XML. 
+
+**HTML** ~36 lines of code  
+```{r echo=FALSE, fig.align="center"}
+knitr::include_graphics(rep('/Users/marcosmartinez689/Documents/DATA607/HTML.jpg'))
+```
+**JSON** 6 lines of code  
+```{r echo=FALSE, fig.align="center"}
+knitr::include_graphics(rep('/Users/marcosmartinez689/Documents/DATA607/JSON.jpg'))
+```
+**XML** ~25 lines of code  
+```{r echo=FALSE, fig.align="center"}
+knitr::include_graphics(rep('/Users/marcosmartinez689/Documents/DATA607/XML.jpg'))
+```
+
+
+### Loading the Data
+Creating the HTML, JSON and XML tables weren't painful the process was fairly simple after reading materials, following the tutorials. The main idea was to follow the formatting each file type requires when creating a table.  
+Loading the HTML and JSON files were quick and painless, my issues only came up when I got to my final table, the XML file. The majority of my time was spent on this assignment was troubleshooting loading my XML file into R. I tried three different methods, installed a number of packages, loaded them up all to no avail. It wasn't until my fourth try that I found success in loading my XML, but that didn't come without its issues. I found success in using the flatxml package noted in my packages section, yet required some tidying and manipulating in order to produce my final result. In order to tidy and manipulate my data, pivot_wider was used as an alternative to the spread function.
+Here is what worked:
+```{r message=FALSE, warning=FALSE}
+#load HTML as df
+url<-("https://raw.githubusercontent.com/gabbypaola/DATA-607/main/HTMLTable1.html")
+HTMLdf <- htmltab(url)
+
+#load json file as df
+json_file <- fromJSON("https://raw.githubusercontent.com/gabbypaola/DATA-607/main/JSON_Table2.json")
+JSONdf <- as.data.frame(json_file)
+
+#load xml file as df
+xml.dataframe <- fxml_importXMLFlat("https://raw.githubusercontent.com/gabbypaola/DATA-607/main/XMLTABLE9.xml")
+xml.dataframe <- xml.dataframe %>%  
+  select(c(1,4))%>% #columns
+  slice(c(-1,-2,-7,-12)) %>%
+  mutate(row = row_number()) %>%
+  pivot_wider(names_from="elem.",values_from = "value.",names_repair="minimal")
+c1<-xml.dataframe %>% 
+  select(2) %>% 
+  drop_na()
+c2<-xml.dataframe %>% 
+  select(3) %>% 
+  drop_na()
+c3<-xml.dataframe %>% 
+  select(4) %>% 
+  drop_na()
+c4<-xml.dataframe %>% 
+  select(5) %>% 
+  drop_na()
+XMLdf <- as.data.frame(c(c1,c2,c3,c4))
+```
+Here is what didn't:
+```{r}
+# #1
+# xml_file <- url("https://raw.githubusercontent.com/gabbypaola/DATA-607/main/XMLTABLE9.xml")
+# df_xml <- xmlToDataFrame(xml_file)
+# #2
+# xmlf<- read_xml("https://raw.githubusercontent.com/gabbypaola/DATA-607/main/XMLTABLE9.xml")
+# xml_df <- xmlf %>%
+#   xmlParse() %>%
+#   xmlToDataFrame()
+# #3
+# xmlURL <- "https://raw.githubusercontent.com/gabbypaola/DATA-607/main/XMLTABLE9.xml"
+# xml_link <- url(xmlURL)
+# xml_data <- xmlParse(file = xml_link)
+# xmldf <- xmlToDataFrame(nodes = getNodeSet(xml_data, "//Book"))
+```
+
+
+### Compare, Compare, Compare!
+The useful library lived up to its name in order to compare the HTML, JSON, and XML data frames to each other using the compare.list function. Each comparison is true for each of the four columns of the three data frames.  
+```{r}
+#comparing HTML to JSON
+compare.list(as.data.frame(HTMLdf), as.data.frame(JSONdf))
+
+#comparing HTML to XML
+compare.list(as.data.frame(HTMLdf), as.data.frame(XMLdf))
+
+#comparing XML to JSON
+compare.list(as.data.frame(XMLdf), as.data.frame(JSONdf))
+```
+**HTML**
+```{r}
+reactable(HTMLdf, bordered = TRUE, striped = TRUE, highlight = TRUE)
+```
+**JSON**
+```{r}
+reactable(JSONdf, bordered = TRUE, striped = TRUE, highlight = TRUE)
+```
+**XML**
+```{r}
+reactable(XMLdf, bordered = TRUE, striped = TRUE, highlight = TRUE)
+```
+
