@@ -1,0 +1,26 @@
+<?xml version = "1.0" encoding = "UTF-8"?>
+
+<Books>
+
+ <Book>
+  <Title>Nick and Norah's Infinite Playlist</Title>
+  <Author>Rachel Cohn, David Levithan</Author>
+  <Genre>Young Adult</Genre>
+  <Year>2006</Year>
+ </Book>
+
+ <Book>
+  <Title>The Notebook</Title>
+  <Authors>Nicholas Sparks</Authors>
+  <Genre>Romance</Genre>
+  <Year>1996</Year>
+ </Book>
+
+ <Book>
+  <Title>Love, Rosie</Title>
+  <Authors><Cecelia Ahern/Authors>
+  <Genre>Romance</Genre>
+  <Year>2004</Year>
+ </Book>
+
+</Books>
