@@ -1,0 +1,26 @@
+<?xml version = "1.0" encoding = "UTF-8"?>
+
+<Books>
+
+ <Book>
+  <Title>Yes!: 50 Scientifically Proven Ways to Be Persuasive</Title>
+  <Author>Noah J. Goldstein, Robert B. Cialdini</Author>
+  <Genre>Psychology</Genre>
+  <Year>2008</Year>
+ </Book>
+
+ <Book>
+  <Title>The Power of Positive Thinking</Title>
+  <Author>Normal Vincent Peale</Author>
+  <Genre>Self Help</Genre>
+  <Year>2007</Year>
+ </Book>
+
+ <Book>
+  <Title>Grit</Title>
+  <Author>Angela Duckworth</Author>
+  <Genre>Nonfiction</Genre>
+  <Year>2016</Year>
+ </Book>
+
+</Books>
