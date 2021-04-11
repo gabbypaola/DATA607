@@ -1,0 +1,65 @@
+---
+title: "Web APIs"
+author: "Gabriella Martinez"
+date: "4/7/2021"
+output: 
+    html_document:
+        toc: true
+        toc_float: true
+        number_sections: false
+        theme: sandstone
+        highlight: tango
+        font-family: "Arial"
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# "default", "cerulean", "journal", "flatly", "darkly", "readable", "spacelab", "united", "cosmo", "lumen", "paper", "sandstone", "simplex", "yeti"
+# Calls: <Anonymous> ... do.call -> <Anony
+```
+
+### Assignment Overview
+
+The New York Times web site provides a rich set of APIs, as described [here](https://developer.nytimes.com/apis).  
+You’ll need to start by signing up for an API key. Your task is to choose one of the New York Times APIs, construct an interface in R to read in the JSON data, and transform it into an R DataFrame.  
+
+### Packages
+```{r}
+library(httr)
+library(jsonlite)
+library(reactable)
+```
+
+### Load API Data
+After signing up for the API Key, I used the best selling nonfiction books reported by The New York Times for the week of 01/05/2020 which can also be verified on [The New York Times](https://www.nytimes.com/books/best-sellers/2020/01/05/combined-print-and-e-book-nonfiction/) website. 
+Using the GET from the httr library, the API webpage was retrieved with he use of the API key requested. 
+content function from the httr library was used along with the from JSON junction from the jsonlite library to extract the data into a list. 
+```{r}
+res = GET("https://api.nytimes.com/svc/books/v3/lists/2020-01-05/hardcover-nonfiction.json?api-key=AqosXChWd9icDpFtb4chdjBylJLrwsdY")
+```
+
+```{r}
+api_data <- fromJSON(content(res, "text"))
+#api_data is a list
+typeof(api_data)
+```
+
+### Extracting and Transform
+The next step was to extract the column data to create the desired dataframe using the base R functions cbind, as.data.frame, and colnames. Cbind was used to extract the columns and then as.data.frame was used to convert the columns into a dataframe. Finally, colnames was used to update my column names. 
+```{r}
+column_data <- cbind(api_data$results$books$rank, api_data$results$books$title,
+                     api_data$results$books$author,api_data$results$books$description,
+                     api_data$results$books$publisher, api_data$results$books$primary_isbn13)
+book_df <- as.data.frame(column_data)
+
+colnames(book_df) <- c("Rank", "Title", "Author", "Description", "Publisher", "ISBN 13")
+```
+
+### The New York Times Best Sellers January 05, 2020
+For my dataframe I decided to extract Rank, Title, Author, Description, Publisher, and the ISBN 13 number for each best seller for the week of January 5, 2020. Below is a table created using the reactable package for the list of the 15 best sellers. 
+```{r}
+reactable(book_df, bordered = TRUE, striped = TRUE, highlight = TRUE, 
+          filterable = TRUE,  showPageSizeOptions = TRUE, 
+          pageSizeOptions = c(5, 10, 15), defaultPageSize = 5)
+```
+
