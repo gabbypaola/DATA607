@@ -1,0 +1,323 @@
+---
+title: "DATA607 Sentiment Analysis"
+author: "Gabriella Martinez"
+date: "4/16/2021"
+output: 
+    html_document:
+        toc: true
+        toc_float: true
+        number_sections: false
+        theme: sandstone
+        highlight: tango
+        font-family: "Arial"
+---
+### Assignment Overview
+Re-create and analyze primary code from [Text Mining with R](https://www.tidytextmining.com/sentiment.html) ^[Robinson, J. S. and D. (n.d.). Text mining with r: A tidy approach. https://www.tidytextmining.com/sentiment.html.]. Provide citation to text book, using a standard citation syntax like APA or MLA. Identify and implement a different corpus to perform sentiment analysis. Identify and implement an additional lexicon for sentiment analysis.
+
+### Packages
+```{r message=FALSE, warning=FALSE}
+library(RCurl)
+library(tidyverse)
+library(tidytext)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+library(dplyr)
+library(textdata)
+library(reactable)
+
+library(syuzhet)
+library(lexRankr) #used for unnest_sentences
+
+library(SentimentAnalysis) #SentimentAnalysis
+library(tm)#SentimentAnalysis
+
+library(wordcloud) #wordcloud
+library(RColorBrewer) #wordcloud
+library(reshape2) #second wordcloud used acast function 
+
+```
+### Can Text Analysis detect Depression?
+That is the question I was curious to find the answer to. It was then that I came across Ryan Boyd's article on his [analysis of Edgar Allan Poe's writings](https://theconversation.com/depression-and-language-analysing-edgar-allan-poes-writings-to-solve-the-mystery-of-his-death-131421) ^[Ryan Boyd                    Assistant Professor in Behavioural Analytics. (2020, December 15). Depression and language: analysing Edgar Allan Poe's writings to solve the mystery of his death. The Conversation. https://theconversation.com/depression-and-language-analysing-edgar-allan-poes-writings-to-solve-the-mystery-of-his-death-131421. ]. Boyd's analysis strives to find a connection between his writings, depression, and untimely death at the age of 40. Although his research didn't find "consistent patterns of depression and do not support suicide as a cause of death. However, linguistic evidence was found suggesting the presence of several potential depressive episodes over the course of Poe's life – these episodes were the most pronounced during years of Poe's greatest success, as well as those following the death of his late wife." However, based on Boyd's sampling method, it is not possible to establish causality that his cause of death was a suicide as a result of his depressive state. ^[Dean, H. J., &amp; Boyd, R. L. (2020, January 21). Deep into that darkness peering: A computational analysis of the role of depression in Edgar Allan Poe's life and death. Journal of Affective Disorders. https://www.sciencedirect.com/science/article/abs/pii/S0165032719322554?via%3Dihub#ec-research-data. ]  
+  
+My aim for this assingment is to conduct a rudimentary pseudo-analysis of [Edgar Allan Poe's short stories corpus found on Kaggle](https://www.kaggle.com/leangab/poe-short-stories-corpuscsv) inspired by Boyd's detailed analysis along with the [Text Mining with R: A Tidy Approach](https://www.tidytextmining.com/sentiment.html) book.
+
+
+### Depression and Sentiment Analysis  
+
+While Poe's cause of death is still unknown, what is known is that he suffered from depression through many periods of his life. Boyd's research notes his most difficult bouts with depression were ironically at the heights of his success, and less ironically, around the time of his wife's death and his own. ^2 "Having major depression increases the suicide risk compared to people without depression" and although Boyd's research was not able to establish causality; I am still curious to see patterns of negative language in the writings towards the end of Poe's career. ^[(DCD), D. C. D. (2015, August 21). Does depression increase the risk for suicide? HHS.gov. https://www.hhs.gov/answers/mental-health-and-substance-abuse/does-depression-increase-risk-of-suicide/index.html#:~:text=Although%20the%20majority%20of%20people,the%20severity%20of%20the%20depression. ]  
+   
+What short stories were published in the last year of Poe's life? Edgar Allan Poe's date of death is recorded as 10/7/1849.
+In an attempt to extract the year from the publication_date column using lubridate, I came to find out that the data wasn't formatted properly. Since the dates were inconsistently formatted, the lubridate packaged rendered useless and needed to find another way to extract the year. After taking another look at the dates, the only consistency noted was the publish year was the last 4 characters for all but one title, "Old English Poetry" which was missing a date all together.The function subRight ^[BraniBrani                    7, AndrieAndrie                    162k3939 gold badges420420 silver badges470470 bronze badges, Xu WangXu Wang                    8, bartektartanusbartektartanus                    12.2k44 gold badges6868 silver badges9191 bronze badges, AndrewAndrew                    7, dsbdsb                    44544 silver badges55 bronze badges, … RanonKahnRanonKahn                    74177 silver badges2020 bronze badges. (1960, August 1). Extracting the last n characters from a string in R. Stack Overflow. https://stackoverflow.com/questions/7963898/extracting-the-last-n-characters-from-a-string-in-r. ] was created in order to extract the last four digits of the publish_date column.
+After some research, ["Old English Poetry"](https://etc.usf.edu/lit2go/147/the-works-of-edgar-allan-poe/5381/old-english-poetry/) was a posthumous publication with a publish year of 1903.
+
+#### Load and initial Tidying of the Data
+
+```{r message=FALSE, warning=FALSE}
+x <- url("https://raw.githubusercontent.com/gabbypaola/DATA-607/main/preprocessed_data.csv")
+poe <- read_csv(x)
+
+poe2<-poe
+#function takes in a vector and a number and extracts the 
+#last n characters in each string of the vector
+subRight <- function(x,n){
+  substr(x, nchar(x)-n+1, nchar(x))
+}
+poe2<-poe2 %>% 
+  select("title","text","classification","publication_date") %>% 
+  mutate(year = subRight(poe2$publication_date,4)) %>% 
+  arrange(desc(year)) 
+```
+
+List of Unique sentiments in the [NRC Word-Emotion Association Lexicon](https://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm)
+```{r}
+senti<-get_sentiments("nrc")
+unique(senti[c("sentiment")])
+```
+
+```{r message=FALSE, warning=FALSE}
+#filter the NRC sentiments by "negative"
+nrc_neg <- get_sentiments("nrc") %>% 
+  filter(sentiment == "negative")
+#prep the tidy_poe table and extract single words using unnest_tokens
+tidy_poe <- poe2 %>% 
+  group_by(title) %>%
+  ungroup() %>% 
+  unnest_tokens(word,text)
+#inner join the poe data set with nrc_neg
+tidy_poe <- tidy_poe %>%
+  filter(year == "1849") %>%
+  inner_join(nrc_neg) %>%
+  count(word, sort = TRUE)
+```
+
+### Preliminary Word Frequency Analysis
+
+As preliminary analysis on the literary content, below are the top ten negative words identified in Poe's short stories published in 1849 using the "negative" sentiment from the NRC lexicon.
+```{r message=FALSE, warning=FALSE}
+tidy_poe %>% 
+top_n(10) %>%  #extract top 10
+ggplot(aes(fct_reorder(`word`,`n`), `n`))+
+      geom_bar(stat="identity", fill="red", 
+      alpha=.6, width=.4) +
+      coord_flip() +
+      xlab("") +
+      ylab("Frequency")+
+      ggtitle("Top Ten Negative NRC Words used by Poe in 1849")
+```
+
+#### Extra Tidying of the Data
+It should be noted that the imported data on Edgar Allan Poe's short stories from Kaggle were included as full text in a single observation. This resulted in needing to split up each body of text into individual lines as in the Jane Austen dataset in order to do analysis over lines of a narrative. In my case, I decided to split up the text based on sentences. In order to achieve this result, the unnest_sentences from the lexRankr package was used to generate the sent_id column in place of the book's line column for the Jane Austen dataset.
+```{r message=FALSE, warning=FALSE}
+poe4 <- poe2 %>% 
+  unnest_sentences(sents, text)
+poe4<-poe4 %>%
+  group_by(year) %>%
+  ungroup() %>%
+  unnest_tokens(word,sents) %>% 
+  arrange(desc(year))
+line_sentiment1849 <- poe4 %>% 
+  filter(year == 1849) %>% 
+  inner_join(get_sentiments("bing")) %>%
+  count(title, index = sent_id %/% 10, sentiment) %>%
+  pivot_wider(names_from = sentiment, 
+              values_from = n, values_fill = 0) %>% 
+  mutate(sentiment = positive - negative)
+```
+### Bing Sentiment on Poe's works of 1849  
+
+Poe published six short stories in the year 1849, "Hop-Frog," "Landor's Cottage," "Mellonata Tauta," "The Poetic Principle," "Von Kenpelen and his Discovery," and "X-ing a Paragraph." Of the six literary works, "The Poetic Principle" displays the most negative Bing sentiment analysis. It is interesting to note that "The Poetic Principle" was Poe's very last publication with a publication date of August 17, 1849 and is classified as an essay. For those curious to read the essay it can be found via the following link, ["The Poetic Principle"](https://etc.usf.edu/lit2go/147/the-works-of-edgar-allan-poe/5363/the-poetic-principle/). 
+```{r message=FALSE, warning=FALSE}
+ggplot(line_sentiment1849,
+       aes(index, sentiment, fill = title)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~title, ncol = 2, scales = "free_x")+
+  ggtitle("Bing Sentiment Analysis of works Published in 1849")
+```
+  
+
+### NRC, AFINN, Bing Sentiments on Poe's works of 1849
+
+Poe's narratives of 1849 and the sentiment dictionaries NRC, AFINN, and Bing. Based on the graphs below, the six titles have an over all positive sentiment contrary to my assumptions and prior familiarity of his work. Note, "the AFINN lexicon measures sentiment with a numeric score between -5 and 5, while the other two lexicons categorize words in a binary fashion, either positive or negative."^1
+```{r message=FALSE, warning=FALSE}
+poe1849 <-poe4 %>% 
+  filter(year == 1849)
+
+afinn <- poe1849 %>% 
+  inner_join(get_sentiments("afinn")) %>% 
+  group_by(index = sent_id %/% 10) %>% 
+  summarise(sentiment = sum(value)) %>% 
+  mutate(method = "AFINN")
+
+bing_and_nrc <- bind_rows(
+  poe1849 %>% 
+    inner_join(get_sentiments("bing")) %>%
+    mutate(method = "Bing et al."),
+  poe1849 %>% 
+    inner_join(get_sentiments("nrc") %>% 
+                 filter(sentiment %in% c("positive", 
+                                         "negative"))
+    ) %>%
+    mutate(method = "NRC")) %>%
+  count(method, index = sent_id %/% 10, sentiment) %>%
+  pivot_wider(names_from = sentiment,
+              values_from = n,
+              values_fill = 0) %>% 
+  mutate(sentiment = positive - negative)
+
+```
+
+```{r message=FALSE, warning=FALSE}
+bind_rows(afinn, 
+          bing_and_nrc) %>%
+  ggplot(aes(index, sentiment, fill = method)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~method, ncol = 1, scales = "free_y")
+```
+
+  
+### Bing Sentiment of "The Tell-Tale Heart"
+
+Out of curiosity, I wanted to look into the sentiment of my favorite Edgar Allen Poe story, "The Tell-Tale Heart."  As expected, given the nature of the story as well as it's classification of "Horror," it has an over all sentiment below 0.   
+Bing sentiment through the narrative of Edgar Allen Poe’s "The Tell-Tale Heart":
+```{r message=FALSE, warning=FALSE}
+poe3 <- poe
+poe3<-poe3 %>%
+  unnest_sentences(sents, text)
+poe3<-poe3 %>%
+  group_by(title) %>%
+  ungroup() %>%
+  unnest_tokens(word,sents)
+line_sentiment2 <- poe3 %>% 
+  filter(title == "THE TELL-TALE HEART") %>% 
+  inner_join(get_sentiments("bing")) %>%
+  count(title, index = sent_id %/% 10, sentiment) %>%
+  pivot_wider(names_from = sentiment, 
+              values_from = n, values_fill = 0) %>% 
+  mutate(sentiment = positive - negative)
+ggplot(line_sentiment2, aes(x=index, y=sentiment, 
+                            fill = title)) +
+  geom_col(show.legend = FALSE) + 
+  ggtitle("Bing Sentiment Analysis of The Tell-Tale Heart")
+```
+
+  
+### Bing Sentiment Word Counts for all Poe works
+
+The most common positive and negative words throughout Poe's works may be found using the Bing lexicon and the inner_join, count, and ungroup functions. Note, there are a great number of "positve" words that may be considered stopwords such as "like" and "great" but have not been removed. Positive word counts appear much greater than that of the negative words in general for all of Poe's short stories. 
+```{r message=FALSE, warning=FALSE}
+bing_word_counts <- poe4 %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  ungroup()
+reactable(bing_word_counts, bordered = TRUE, striped = TRUE, 
+          highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, 
+          showPagination = TRUE, pageSizeOptions = c(5, 10), defaultPageSize = 5)
+```
+
+```{r message=FALSE, warning=FALSE}
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+```
+
+### Word Cloud
+Using the wordcloud function, we can visualize the word frequencies in a much more aestheically pleasing way. 
+```{r message=FALSE, warning=FALSE}
+set.seed(123) # for reproducibility 
+poe4 %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100,
+          rot.per=0.35,
+          colors=brewer.pal(8, "Dark2")))
+```
+
+```{r message=FALSE, warning=FALSE}
+poe4 %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("darkred", "darkgreen"),
+                   max.words = 100)
+```
+
+### SentimentAnalysis Package
+While the instructions request an additional lexicon, the [SentimentAnalysis](https://cran.r-project.org/web/packages/SentimentAnalysis/SentimentAnalysis.pdf) "implementation utilizes **various** existing dictionaries, such as Harvard IV, or finance-specific dictionaries" and others.  
+I didn't find this package to be too helpful in providing any additional substantial insights on the works of Poe perse. The most interesting feature was the Evolving sentiment over the span of Poe's career as seen below. As such, I decided to venture and look for another package that would be more revealing into the the body of his short stories.
+```{r message=FALSE, warning=FALSE}
+poe_sent <- analyzeSentiment(poe2$text)
+
+#converts sentiment to negative / positive
+convertToBinaryResponse(poe_sent)$SentimentGI
+#converts sentiment to negative / positive/ neutral 
+convertToDirection(poe_sent)$SentimentGI
+
+poe_sent %>% 
+  ggplot(aes(x=SentimentLM))+
+  geom_histogram(aes(y=..density..),
+                 fill="lightblue")+
+  labs(title="Histogram: Density of Distribution for Standardized Sentiment Variable")+
+  geom_density(col="black")
+
+plotSentiment(poe_sent) + ggtitle("Evolving sentiment on the Stories of Edgar Allen Poe")
+
+```
+
+### Sentimentr Package
+In an effort to find another sentiment analysis package to work on with the Edgar Allan Poe short story dataset, I found sentimentr^[Trinker. (n.d.). trinker/sentimentr. GitHub. https://github.com/trinker/sentimentr. ] which of the two (SentimentAnalysis and this one), I would say [sentimentr](https://towardsdatascience.com/sentiment-analysis-in-r-good-vs-not-good-handling-negations-2404ec9ff2ae) may be my favorite for its capability of deciphering explicit emotions within a sentence as well as negated emotions in a sentence.  
+For example, the emotion funciton has the ability to determine the underlying emotional meaning of a sentence.  
+"I am happy"- emotion: happy (positive)  
+"I am not happy"- negatied emotion (negative)  
+There is much more that can be done with the package such as looking into negator, amplifier, deamplifier, and adversative percentages which has not been included. Another great function is profanity() which has the ability to detect profanity used in a body of text which would be useful in web forum and product / service review analysis.
+```{r message=FALSE, warning=FALSE}
+library(sentimentr)
+#provides sentiment by sentence
+poe2 %>% 
+  get_sentences() %>% 
+  sentiment() -> senti_poe
+
+#provides emotion as well as the negation of emotion
+poe2 %>% 
+  get_sentences() %>% 
+  emotion() -> emo_poe
+emo_poe<-emo_poe %>% 
+  filter(emotion_count > 0) %>% 
+  arrange(desc(emotion_count))
+```
+
+#### Sentiment Throughout Poe's Career
+```{r}
+senti_poe %>% 
+  ggplot()+geom_boxplot(aes(y=year, x=sentiment))
+```
+
+
+#### List Emotions of Emotions Detected in Poe's Short Stories
+```{r warning=FALSE}
+reactable(emo_poe, bordered = TRUE, striped = TRUE, 
+          highlight = TRUE, filterable = TRUE,  showPageSizeOptions = TRUE, 
+          showPagination = TRUE, pageSizeOptions = c(5, 10), defaultPageSize = 5)
+```
+
+#### Top Ten Sentence-Level Emotions Detected Poe's Short Stories
+```{r message=FALSE, warning=FALSE}
+emo_poe %>% 
+top_n(10) %>% 
+ggplot(aes(fct_reorder(`emotion_type`,`emotion_count`), `emotion_count`))+
+      geom_bar(stat="identity", fill="red", 
+      alpha=.6, width=.4) +
+      coord_flip() +
+      xlab("") +
+      ylab("Frequency")+
+      ggtitle("Top Ten Sentence-Level Emotions Detected in Poe's Short Stories")
+
+```
+
