@@ -1,0 +1,70 @@
+---
+title: "DATA 607 Week 11 Discussion "
+author: "Gabriella Martinez"
+date: "4/20/2021"
+output:
+    html_document:
+        toc: true
+        toc_float: true
+        number_sections: false
+        theme: cerulean
+        highlight: tango
+        font-family: "Arial"
+---
+### Discussion Prompt
+Your task is to analyze an existing recommender system that you find interesting.  
+```{r echo=FALSE, fig.align="center"}
+knitr::include_graphics(rep('/Users/marcosmartinez689/Documents/DATA607/youtube2.jpg'))
+```
+You should:  
+1. Perform a **Scenario Design** analysis as described below.  Consider whether it makes sense for your selected recommender system to perform scenario design twice, once for the organization (e.g. Amazon.com) and once for the organization's customers.  
+2.Attempt to **reverse engineer** what you can about the site, from the site interface and any available information that you can find on the Internet or elsewhere.  
+3.Include **specific recommendations** about how to improve the site's recommendation capabilities going forward.  
+4.Create your report using an R Markdown file, and create a discussion thread with a link to the GitHub repo where your Markdown file notebook resides.  You are not expected to need to write code for this discussion assignment.  
+  
+### Scenario Design
+```{r echo=FALSE, fig.align="center"}
+knitr::include_graphics(rep('/Users/marcosmartinez689/Documents/DATA607/ScenarioAnalysis.jpg'))
+```
+  
+**Who are your targeted users?**  
+YouTube's targeted users is just about anyone with internet and an electronic device where either the YouTube website or app may be accessed.
+  
+**What are their key goals?**   
+Key goals of users vary from consuming entertainment, news, and education to also creating it. Users access YouTube for just about any thing from music videos, the weather, to learning how to build a shed. Users on YouTube can also utilize the platform to create content and get paid for their videos. This exercise will focus on the content consumer as opposed to the creator for the recommender system discussion.
+  
+**How can you help them accomplish these goals?**  
+We can help users accomplish these goals by offering the following:
+  
+* Offer desktop and mobile app modes
+* Allow for account set up
+* Search bar with auto-complete based on provided input
+* Enable features such as following content creators by "subscribing", liking and unliking with thumbs up and thumbs down
+* Enable user commentary on videos 
+* Keep track of trending content and display on home page
+* Keep track of what users have watched in the past, how much time they spend watching, and what they don't watch  
+* Offer a variety of videos for all users as well as a separate [kid-friendly YouTube app](https://www.youtube.com/watch?v=BIB3avfTo4I)  
+
+### Reverse Engineer 
+The YouTube algorithm's goal is twofold, to learn the behaviors of its viewers in order to cater content as well to find a way to keep viewers watching in order to show more ads to ultimately generate more revenue for the site. The algorithm generates recommendations to viewers via the below methods ^1^ :
+  
+* Ranks videos by assigning them a score based on performance analytics data.
+* Matches videos to people based on their watch history, and what similar people have watched.
+  
+The two methods are achived using Wide and Deep model in conjunction with a Multi-gate Mixture of Experts (MMoE) which is implemented at the Deep level of the Wide and Deep Model. "The Wide and Deep model generates a prediction for each of the defined (both engagement and satisfaction) objectives. The objectives are grouped in binary classification problems (i.e. liking a video or not) and regression problems (i.e. the rating of a video).Features of the current video (Content, title, topic, upload time, etc.) and the user that is watching (time, user profile, etc.) are used as input in the MMoE at the Deep stage. The concept behind the MMoE model is based on efficiently sharing weights over different objectives." ^2^
+
+### Recommendations
+Some suggestions to improve the site’s recommendation effectiveness may be:
+
+* Similar to Pandora, YouTube can implement an incentive to stay on the site or application for a specified period of time free of commercial interruption. This will enable YouTube to enhance the knowledge of the user in order to improve the recommendations made to them.
+* Enable users to change the layout of recommended videos on the desktop version. At the moment, the recommended videos a lined up on the right and some videos that have higher "watch" potential end up on the bottom where a user needs to scroll all the way down to be able to see it. One way to alleviate this may be to switch the layout to place the recommendations horizontally below the video. 
+* In line with the above with regard to the desktop version, change the comment section as opposed to being fully exposed, there should be a button or option to open the comments if a user wishes to leave a comment or access the comment section. Also give the option to have the comments either open on the bottom or the side. The comments section while engaging, can be a distraction from actually viewing content thus having more ads presented as well. The desktop landscape below the actual video can be improved in order to maximize site activity.
+
+
+* * *
+### APA References
+The above was created using the following sources:  
+  
+1. How Does the YouTube Algorithm Work? A Guide to Getting More Views. Social Media Marketing &amp; Management Dashboard. (2020, August 18). https://blog.hootsuite.com/how-the-youtube-algorithm-works/#:~:text=The%20recommendation%20stream%20is%20a,what%20similar%20people%20have%20watched.  
+2. How YouTube is Recommending Your Next Video. KDnuggets. (n.d.). https://www.kdnuggets.com/2019/10/youtube-recommending-next-video.html.   
+3. creatoracademy. (2017, August 28). 'The Algorithm' - How YouTube Search &amp; Discovery Works. YouTube. https://www.youtube.com/watch?v=hPxnIix5ExI&amp;list=PLpjK416fmKwQK6_REczCaBQ1x1jyHvZAF&amp;index=1. 
