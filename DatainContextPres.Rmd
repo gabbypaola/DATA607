@@ -1,0 +1,237 @@
+---
+title: "DATA 606 Data Project"
+author: "Gabriella Martinez"
+date: "`r Sys.Date()`"
+output:
+  slidy_presentation: default
+  output: slidy_presentation
+  ioslides_presentation: default
+---
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# load data
+
+library(tidyverse)
+library(openintro)
+library(stats)
+library(tigerstats)
+library(ggplot2)
+
+#LOAD DATA
+##data source: https://www.nj.gov/education/stateaid/1819/ needed to edit sheet 
+StateAidFY19 <- read.csv("/Users/marcosmartinez689/Documents/DATA606/DistrictFinancialDetailsFY19.csv")
+
+##data source:
+#https://www.nj.gov/education/assessment/results/reports/1819/Spring2019NJSLAResults.shtml 
+Gr10_unsorted <- read.csv("/Users/marcosmartinez689/Documents/DATA606/ELA10NJSLADATA2018-19.csv")
+
+#subset the data frames to include only the variables we are interested in.
+StateAidFY19 <- StateAidFY19[,c('County', 'Dist', 'District.Name',
+      'X2018.19.Approp..Act.Revised.Total.K.12.Aid', 'Equalization.Aid', 
+      'Educational.Adequacy.Aid', 'Choice.Aid', 'Special.Education.Categorical.Aid', 
+      'Security.Aid', 'Adjustment.Aid', 'X2018.19.Approp..Act.Revised.Total.K.12.Aid2')]
+
+Gr10_unsorted <- Gr10_unsorted[,c('County.Code', 'County.Name', 'District.Name', 
+      'School.Name', 'Subgroup', 'Subgroup.Type', 'Mean.Scale.Score')]
+
+#Filter to show only public district $ totals for all students  
+#***Needed to hash filtering out for PDF file to produce 
+Gr10_disab <- Gr10_unsorted %>%
+  filter(County.Code != "State", County.Name != "Charters", Mean.Scale.Score >= 0, School.Name == "District Total", Subgroup.Type != "All Students", Subgroup.Type != "White", Subgroup.Type != "Asian", Subgroup.Type != "African American", Subgroup.Type != "Hispanic", Subgroup.Type != "Male", Subgroup.Type != "Female", Subgroup.Type != "Economically Disadvantaged", Subgroup.Type != "Non-Econ. Disadvantaged", Subgroup.Type != "Current - ELL", Subgroup.Type != "Former - ELL", Subgroup.Type != "English Language Learners", Subgroup.Type != "Other", Subgroup == "Subgroup")
+
+
+Gr10_unsorted <- Gr10_unsorted %>%
+  filter(County.Code != "State", County.Name != "Charters", 
+School.Name == "District Total", Subgroup.Type == "All Students", Mean.Scale.Score >= 0)
+StateAidFY19 <- StateAidFY19 %>%
+  filter(County != 'State')
+
+# Merge the two tables into one 
+moneyscore <- merge(StateAidFY19, Gr10_unsorted, by="District.Name")
+moneyscore2 <- merge(StateAidFY19, Gr10_disab, by="District.Name")
+
+#check and convert variable types as needed
+moneyscore$Mean.Scale.Score <- as.numeric(as.character(moneyscore$Mean.Scale.Score))
+#typeof(moneyscore$Mean.Scale.Score)
+
+moneyscore$X2018.19.Approp..Act.Revised.Total.K.12.Aid <- as.numeric(gsub(",","",moneyscore$X2018.19.Approp..Act.Revised.Total.K.12.Aid))
+#typeof(moneyscore$X2018.19.Approp..Act.Revised.Total.K.12.Aid)
+
+moneyscore2$Special.Education.Categorical.Aid <- as.numeric(gsub(",","",moneyscore2$Special.Education.Categorical.Aid))
+#typeof(moneyscore2$Special.Education.Categorical.Aid)
+
+moneyscore2$Mean.Scale.Score <- as.numeric(as.character(moneyscore2$Mean.Scale.Score))
+#typeof(moneyscore2$Mean.Scale.Score)
+
+```
+
+### Part 1 - Introduction  
+
+**Overview**    
+This is an observational study using data collected by the New Jersey Department of Education. Data is submitted by public and charter districts to the state on an annual basis. One data set is comprised of the English Language Arts test scores for 10th grade students in New Jersey public and charter school districts; while the other contains funding information for school districts in New Jersey.  The resulting combined data set represents a New Jersey public school district, district student demographics, 10th grade student ELA (English Language Arts) standardized test scores, and state funding awarded to districts for the 2018-2019 school year. 
+
+### Part 2 - Data Details  
+**Dependent / Response Variable(s)**    
+The first response variable studied in this report is a numerical variable: the Mean ELA score for 10th graders in traditional classroom setting in 2019 for each public school district in NJ. The second response variable taken into account in this report is also a numerical variable: the Mean ELA score for 10th graders in special education in 2019 for each public school district in NJ.  
+
+**Independent / Explanatory Variable(s)**    
+The numerical explanatory variable in this study is the amount of state aid awarded to each public school district in the state of New Jersey for the 2018-2019 school year and the other numerical variable is the amount of state aid provided to districts specifically for Special Education purposes.  
+
+**Research Question**  
+Is there evidence of an association between public school district funding and 10th grade student English Language Arts scores in both the traditional classroom setting and in Special Education settings? In other words, is the amount of money a district receives from the state commensurate to student standardized test performance?  
+
+### Part 3 - Exploratory data analysis - Linear Regression Model #1 - Traditional Classroom Setting 
+
+**Summary Statistics for Total District State Aid Awarded 2018-2019 School Year (Independent / Explanatory Variable #1)**
+```{r echo=FALSE}
+summary(moneyscore$X2018.19.Approp..Act.Revised.Total.K.12.Aid)
+```
+Based on the below, our independent variable is heavily right-skewed.
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.show="hold", out.width="50%", fig.height=4}
+hist(moneyscore$X2018.19.Approp..Act.Revised.Total.K.12.Aid, main = "Total District State Aid for school year 2018-2019",  
+       xlab = 'District State Aid 2018-2019', ylab = NULL)
+```
+
+**Summary Statistics for Mean ELA Test Score 10th Grade (Dependent / Response Variable #1)**  
+```{r echo=FALSE}
+summary(moneyscore$Mean.Scale.Score)
+```
+
+Based on the histogram below, our dependent variable follows a normal distribution. 
+
+```{r echo=FALSE, fig.height=4, fig.show="hold", message=FALSE, warning=FALSE, out.width="50%"}
+hist(moneyscore$Mean.Scale.Score, main = "Histogram of Mean ELA Test Score 10th Grade",  
+       xlab = 'Mean ELA Test Score 10th Grade', ylab = NULL)
+```
+
+### Part 3 cont'd - Exploratory data analysis - Linear Regression Model #2 - Special Education and SE Accomodiation Setting  
+**Summary Statistics for Special Education District State Aid Awarded 2018-2019 School Year (Independent / Explanatory Variable #2)**  
+Based on the below, our independent variable for Special Education award provided is also heavily right-skewed.  
+```{r echo=FALSE}
+summary(moneyscore2$Special.Education.Categorical.Aid)
+```
+```{r echo=FALSE, fig.height=4, fig.show="hold", message=FALSE, warning=FALSE, out.width="50%", paged.print=FALSE}
+hist(moneyscore2$Special.Education.Categorical.Aid, main = "Histogram SE and SE Accommodation Students",xlab = 'Mean ELA Test Score 10th Grade SE and SE Accommodation Students', ylab = NULL)
+```
+  
+**Summary Statistics for Mean ELA Test Score 10th Grade for Special Education Students & Students wtih SE Accommodation (Dependent / Response Variable #2)**
+```{r echo=FALSE}
+summary(moneyscore2$Mean.Scale.Score)
+```
+
+Based on the histogram below, our second dependent variable appears to to be right-skewed. 
+
+```{r echo=FALSE, fig.height=4, fig.show="hold", message=FALSE, warning=FALSE, out.width="50%", paged.print=FALSE}
+hist(moneyscore2$Mean.Scale.Score, main = "Histogram SE and SE Accommodation Students",xlab = 'Mean ELA Test Score 10th Grade SE and SE Accommodation Students', ylab = NULL)
+```
+
+### Part 4 - Linear Regression Model #1 - Traditional Classroom Setting    
+**Linear Regression Model #1 $R^2$ Interpretation**    
+
+The regression model accounts for 11.92% of the variance. The model doesn't display a strong association between the two variables.
+```{r echo=FALSE}
+# model----------------------------
+model1 <- lm(Mean.Scale.Score~X2018.19.Approp..Act.Revised.Total.K.12.Aid , data = moneyscore)
+summary(model1)
+# plot ----------------------------
+par(mar = c(3.5, 4, 1, 0.5), las = 1, mgp = c(2.5, 0.7, 0), 
+    cex.lab = 1.5, cex.axis = 1.5)
+plot(Mean.Scale.Score~X2018.19.Approp..Act.Revised.Total.K.12.Aid, data = moneyscore, 
+     pch = 19, col = COL[1,2], 
+     xlab = "State Aid 2018-2019 ", ylab = "10th Grade Mean ELA Test Score", axes = FALSE)
+axis(1)
+#axis(2, at = seq(20, 80, 20))
+box()
+abline(model1, col = COL[2], lwd = 2)
+
+plot(model1)
+```
+
+### Part 4 - Traditional Classroom Setting Linear Regression Model Diagonstics
+  
+**Linearity**  
+Based on the outliers shown in the plot below, this method is insufficient to apply to the data as it doesn't meet the linearity conditions.
+```{r echo=FALSE}
+ggplot(data = model1, aes(x = .fitted, y = .resid)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  xlab("Fitted values") +
+  ylab("Residuals")
+```
+  
+**Nearly normal residuals**  
+Based on both the histogram and the QQ plot, the residuals display a normal distribution.
+```{r echo=FALSE}
+ggplot(data = model1, aes(x = .resid)) +
+  geom_histogram() +
+  xlab("Residuals")
+
+ggplot(data = model1, aes(sample = .resid)) +
+  stat_qq() + stat_qq_line()
+```
+  
+**Constant variability**  
+Based on the plots, there is constant variability.
+
+### Part 4 cont'd - Linear Regression Model #2 - Special Education and SE Accomodation Classroom Setting  
+**Linear Regression Model #2 $R^2$ Interpretation**  
+
+
+The regression model accounts for 3.417% of the variance. The model doesn't display a strong association between the two variables.
+```{r score-vs-state-funding, echo=FALSE}
+# model----------------------------
+model2 <- lm(Mean.Scale.Score ~ Special.Education.Categorical.Aid , data = moneyscore2)
+summary(model2)
+# plot ----------------------------
+par(mar = c(3.5, 4, 1, 0.5), las = 1, mgp = c(2.5, 0.7, 0), 
+    cex.lab = 1.5, cex.axis = 1.5)
+plot(Mean.Scale.Score ~ Special.Education.Categorical.Aid, data = moneyscore2, 
+     pch = 19, col = COL[1,2], 
+     xlab = "SE State Aid 2018-2019 ", ylab = "Grade 10 Mean ELA Score SE & SE Acommodation Students", axes = FALSE)
+axis(1)
+box()
+abline(model2, col = COL[2], lwd = 2)
+plot(model2)
+```
+
+### Part 4 cont'd - Special Education and SE Accomodation Classroom Setting Linear Regression Model Diagonstics  
+**Linearity**  
+Based on the outliers shown in the plot below, this method is insufficient to apply to the data as it doesn't meet the linearity conditions.
+```{r echo=FALSE}
+ggplot(data = model2, aes(x = .fitted, y = .resid)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  xlab("Fitted values") +
+  ylab("Residuals")
+```
+  
+**Nearly normal residuals**  
+Based on both the histogram and the QQ plot, the residuals display a right skewed distribution.
+```{r hist-res, echo=FALSE}
+ggplot(data = model2, aes(x = .resid)) +
+  geom_histogram() +
+  xlab("Residuals")
+
+ggplot(data = model2, aes(sample = .resid)) +
+  stat_qq() + stat_qq_line()
+```
+  
+**Constant variability**  
+Based on the plots above, there is not constant variability.
+
+### Part 5 - Conclusion  
+This analysis is important to show that more state aid to districts is not commensurate to student
+standardized test performance. Districts that receive the most state funding are Title I schools whose majority student body come from low-income families. The majority if not all Title I schools are located in urban areas where not only economic disadvantages impact student performance, but other potential internal factors ranging from single-parent households, immigrant families or possible cases of neglect / abuse to undetected cognitive impairments and lack of healthcare to diagnose and treat such ailments. The limitations of this analysis would be the missing data on internal student factors such as students living in  single-parent households and other aforementioned internal and external social factors that play a key role in a student's development and ultimately their performance on standardized tests. 
+
+
+### References
+**Data Sources:**  
+
+For more information on Title I: https://www2.ed.gov/programs/titleiparta/index.html  
+
+Data collected by NJDOE and is available online here:  
+https://www.nj.gov/education/stateaid/1819/   
+https://www.nj.gov/education/assessment/results/reports/1819/Spring2019NJSLAResults.shtml
+
+
