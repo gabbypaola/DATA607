@@ -1,0 +1,358 @@
+---
+title: "DATA607 Project 4"
+author: "Gabriella Martinez"
+date: "4/28/2021"
+output: 
+    html_document:
+        theme: yeti
+        highlight: kate
+        font-family: "Arial"
+        code_folding: "show"
+---
+
+## Document Classification {.tabset .tabset-pills}
+### Assignment Overview
+It can be useful to be able to classify new "test" documents using already classified "training"
+documents.  A common example is using a corpus of labeled spam and ham (non-spam) e-mails to 
+predict whether or not a new document is spam.  
+
+For this project, you can start with a spam/ham dataset, then predict the class of new documents
+(either withheld from the training dataset or from another source such as your own spam folder).
+[Example corpus.](https://spamassassin.apache.org/old/publiccorpus/)
+
+Here are two short videos that you may find helpful.
+
+The [first video](https://www.youtube.com/watch?v=6IzhRaSePKU&feature=emb_imp_woyt) shows how to unzip the provided files.  
+  
+The [second video](https://www.youtube.com/watch?v=5ikDo4SrLNQ&feature=emb_imp_woyt) provides a short overview of predictive classifiers.  
+  
+For more adventurous students, you are welcome (encouraged!) to come up with a different set of documents (including scraped web pages!?) that have already been classified (e.g. tagged), then analyze these documents to predict how new documents should be classified.  
+  
+**New!  Project 4 extra credit!**  Students who use the relatively new tidymodels and textrecipes packages to complete their Project 4 work will automatically receive 5 extra credit points.  tidymodels is a significant improvement over Max Kuhn's older `caret` package.  Here are some resources to help you get up to speed on tidymodels and textrecipes.
+
+* [Tidy Modeling with R, Max Kuhn and Julia Silge](https://www.tmwr.org/). Julia Silge has also done a number of tidymodels screencasts, including [here](https://www.youtube.com/watch?v=BgWCuyrwD1s)
+* [github.com/tidymodels/textrecipes](https://github.com/tidymodels/textrecipes)
+* DataCamp course, [Modeling with TidyModels in R](https://learn.datacamp.com/courses/modeling-with-tidymodels-in-r)
+
+### Packages
+Below are the packages used for the making of this project.
+```{r class.source = "fold-show", message=FALSE, warning=FALSE}
+library(readr)
+library(kaggler)
+library(dplyr)
+library(tidymodels)
+library(textrecipes)
+library(discrim)
+library(tidyverse)
+library(tidytext)
+library(ggplot2)
+library(RColorBrewer)
+library(wordcloud)
+library(kableExtra)
+```
+
+### Load the Data
+```{r echo=FALSE, fig.align="center"}
+knitr::include_graphics(rep('/Users/marcosmartinez689/Documents/DATA607/Project 4/fakenews.jpg'))
+```
+For this project, I decided on using the Fake and Real news dataset^[https://www.kaggle.com/clmentbisaillon/fake-and-real-news-dataset] from Kaggle. In order for reproducibility, I first attempted loading the data sets from Kaggle into GitHub after downloading. However, the True and Fake data sets were too large to be loaded into GitHub as GitHub has a limit of 25KB. The True and Fake data sets are 52.3 and 61.3 KBs, respectively.  
+  
+As such, another "reproducible friendly" method was required to load the data. Luckily, our DATA607 course equipped us with knowledge on the use of APIs to load data from sites into R. My next quest was to figure out if Kaggle had an API to work with in R. My search led me to an article on Medium, "How to use Kaggle API to download datasets in R"^[https://medium.com/mcd-unison/how-to-use-kaggle-api-to-download-datasets-in-r-312179c7a99c] which walks you through the process. It is interesting to note, this package was a custom creation by the author, Luis Durazo from the Maestría en Ciencia de Datos de la Universidad de Sonora en Mexico ^[https://ldurazo.medium.com/].
+
+Next step was to obtain an API Token from Kaggle. In order to get an API Token from Kaggle, you need to set up a profile. Once a profile has been set up, go to "Your Profile" from the upper right hand corner of the site. Once in "Your Profile," proceed to "Account," and there will be an option to "Create New API Token." Then in your Downloads folder of your PC, you will have your API which will be named "kaggle.jason." The filepath to "kaggle.jason" will be required for the file load into R. I personally moved the file from Downloads into the folder I used as my working directory for this R session. 
+
+Note, the R code chunk with the```kgl_auth()``` function call has been obscured to hide the API userpwd. The ```kgl_auth()``` code has been commented out but included below for illustrative purposes. Once the below code was executed, the two data sets, True and Fake were loaded into my working directory, and both were loaded as ```true_news``` and ```fake_news``` dataframes in my R session. 
+```{r message=FALSE, warning=FALSE, include=FALSE}
+kgl_auth(creds_file = 'C:/Users/marcosmartinez689/Documents/DATA607/Project 4/kaggle.json') #load Kaggle API to local machine 
+```
+
+```{r message=FALSE, warning=FALSE}
+#devtools::install_github("ldurazo/kaggler")
+#kgl_auth(creds_file = 'C:/Users/marcosmartinez689/Documents/DATA607/Project 4/kaggle.json') -load Kaggle API into R
+
+response <- kgl_datasets_download_all(owner_dataset = "clmentbisaillon/fake-and-real-news-dataset") #Kaggle dataset
+
+download.file(response[["url"]], "data/temp.zip", mode="wb")
+
+unzip_result <- unzip("data/temp.zip", overwrite = TRUE)
+
+true_news <- read_csv("./True.csv")
+fake_news <- read_csv("./Fake.csv")
+```
+
+It is always a good idea to take a look at the data once it has loaded in order to get a feel for the data. Based on the below, it looks like both data frames have the same amount of columns with the same column names. Our ```true_news``` data frame has 21,417 observations while our ```fake_news``` dataframe has 23,481 observations and both have 4 columns titled in the same fashion.
+```{r}
+glimpse(true_news)
+glimpse(fake_news)
+```
+Based on the ``glimpse()``, it looks like our `true_news` data frame has elements that need to be cleaned up in the `text` column. We'll take another look to make sure using the head function. It looks like there are city names along with "(Reuters)" in a number of the observations in the `text` column.
+
+```{r}
+head(true_news$text,3)
+```
+### Clean, Classify, and Combine
+To clean the `true_news` data, we will use the **baseR** function, `gsub()` in conjunction with regex created by our classmate, Gabriel Campos to remove the unnecessary verbiage from the `text` column.  
+
+After taking another look with the `head()` function, our clean up was a success in removing the extra verbiage that may throw off our analysis and word counts.
+```{r}
+true_news$text <- gsub(".*\\(Reuters\\) - ","",true_news$text)
+
+head(true_news$text,3) 
+```
+  
+  
+Furthermore, in order to prepare the data for classification modeling, we need to add a column to distinguish which observations are True and which are Fake prior to merging the two data frames into one. As such, a new column ```classification```, was added to both along with their respective classifications either "True" for real news, and "Fake" for fake news. Once again, we'll take one last glimpse before merging the two. 
+
+```{r}
+true_news$classification <- ("True")
+fake_news$classification <- ("Fake")
+
+glimpse(true_news)
+glimpse(fake_news)
+```
+
+Using the ```dplyr``` function ```rbind()```, we combine the ```fake_news``` and ```true_news``` to create ```total_news```. Since both ```fake_news``` and ```true_news``` have the same columns, ```rbind()``` can be thought of taking the two and stacking one data frame on top of the other to create one.
+```{r}
+total_news <- rbind(fake_news, true_news)
+glimpse(total_news)
+```
+
+### Exploratory Data Analysis
+When working with large data sets, or any data set rather, it is good to do some exploratory data analysis before diving in. This allows you to identify any trends or possibly formulate hypotheses that could lead to new data collection and experiments. 
+
+Below shows our `total_news` data set by `classification` which is how we will be stratifying our data in this project.  
+
+```{r class.source="fold-hide", message=FALSE, warning=FALSE}
+total_news %>% 
+  count(classification) %>% 
+  arrange(desc(n)) %>% 
+  ggplot(aes(fct_reorder(`classification`,`n`), `n`))+
+      geom_bar(stat="identity",fill="lightblue", 
+      alpha=.7, width=.4) +
+      coord_flip() +
+      xlab("") +
+      ylab("Frequency")+
+      ggtitle("Article Frequency by Classification")+
+      theme_minimal()
+```
+    
+   
+Our data set also contains another variable `subject` which the data can potentially be stratified by aside from the binary `classification` of fake and true. Below is the frequency of each article in the data set by `subject`.  
+```{r class.source="fold-hide", message=FALSE, warning=FALSE}
+total_news %>% 
+  count(subject) %>% 
+  arrange(desc(n)) %>% 
+  ggplot(aes(fct_reorder(`subject`,`n`), `n`))+
+      geom_bar(stat="identity",fill="lightgreen", 
+      alpha=.7, width=.4) +
+      coord_flip() +
+      xlab("") +
+      ylab("Frequency")+
+      ggtitle("Article Frequency by Subject")+
+      theme_minimal()
+```
+  
+  
+**Fake News Word Cloud**  
+Below are word clouds for our `fake_news` and `true_news` sets to visualize the word frequencies that appear in each set.   
+  
+The word "trump" has been removed since the large count at 75423 skewed the visual.  
+  
+```{r class.source = "fold-hide", message=FALSE, warning=FALSE}
+set.seed(2021)
+fake_news %>%
+  unnest_tokens(word,text) %>% 
+  anti_join(stop_words) %>% 
+  count(word, sort = TRUE) %>% 
+  slice(c(-1)) %>% 
+  with(wordcloud(word, n, max.words = 100,
+          colors=brewer.pal(10, "Paired")))
+
+```
+  
+  
+Below is the top ten words by count in the `true_news` data set, without elimination of the first word.
+```{r class.source = "fold-hide", message=TRUE, warning=FALSE}
+fake_news %>%
+  unnest_tokens(word,text) %>% 
+  anti_join(stop_words) %>% 
+  count(word, sort = TRUE) %>% 
+  head(10) %>% 
+  kable()
+```
+  
+  
+  
+**True News Word Cloud**
+As in the above, the fist two words were removed to optimize the visual output. Words and respective counts removed: "trump" 42964, "u.s" 40971.   
+```{r class.source = "fold-hide", message=FALSE, warning=FALSE}
+set.seed(2)
+true_news %>%
+  unnest_tokens(word,text) %>% 
+  anti_join(stop_words) %>% 
+  count(word, sort = TRUE) %>% 
+  slice(c(-1,-2)) %>% 
+  with(wordcloud(word, n, max.words = 100,
+          colors=brewer.pal(10, "Paired")))
+
+```
+  
+  
+Below is the top ten words by count in the `true_news` data set, without elimination of the first 2 words.
+```{r class.source = "fold-hide", message=FALSE, warning=FALSE}
+true_news %>%
+  unnest_tokens(word,text) %>% 
+  anti_join(stop_words) %>% 
+  count(word, sort = TRUE) %>% 
+  head(10) %>% 
+  kable()
+```
+  
+   
+Based on the word clouds and term frequency counts, it would be interesting to conduct a sentiment analysis using the Loughran data set since this sentiment analysis data set was created using financial documents. The Loughran sentiment analysis on the `true_news` articles, along with stock market data may uncover potential trends between the articles and stock market. 
+
+### Classification Model
+#### {.tabset}
+##### Model Preparation
+This classification model was created using the online textbook "Supervised Machine Learning for Text Analysis in R" authored by Emil Hvitfeldt and Julia Silge published on 04/21/2021 ^[https://smltar.com/mlclassification.html#classfirstattemptlookatdata].   
+  
+Now that we have our binary classification of the 'true' and 'fake' news in our ```total_news``` data frame, we are ready to build the model. The first step we'll take is to set a seed given our use of the ```initial_split()``` from **rsample**, we need to have a seed in order to ensure reproducibility before running the function. Next we split the data into two random groups, a training data set, and a test data set using ```initial_split()```. The ```strata``` argument ensures that the distribution of our ```classification``` variable is similar after splitting the data in the training set and testing set. 
+```{r message=FALSE, warning=FALSE}
+library(tidymodels)
+
+set.seed(1234) #for reproducibility
+
+news_split <-initial_split(total_news, strata=classification)
+
+news_train <- training(news_split)
+news_test <- testing(news_split)
+```
+
+The dimensions of the two splits show that the ```initial_split()``` worked as expected.
+```{r}
+dim(news_train)
+dim(news_test)
+```
+
+Next we'll apply a ```recipe()``` to the data where the ```text``` determines its ```classification``` in the training data set, ```news_train```. Here ```classification``` is the outcome and ```text``` is the predictor.  A recipe is a description of what steps should be applied to a data set in order to get it ready for data analysis. ^[https://www.rdocumentation.org/packages/recipes/versions/0.1.16/topics/recipe]
+```{r}
+news_recipe <- recipe(classification ~ text, data = news_train)
+```
+
+Now we will process the ```text``` variable containing the articles in our training data set, ```news_train```. To do so, we will use **textrecipes** and pipe operators where first, we'll tokenize the text with the ```step_tokenize()``` function. Next we use ```step_tokenfilter``` to only keep ```max_tokens``` of the 400 most frequestn tokens. Lastly, we will use ```step_tfidf()``` to compute tf-idf.  
+  
+The tf-idf or term frequency-inverse document frequency, is a statistical mesuare that evaluates how relevant a word is to a document in a series of documents. This is accomplished by multiplying two metrics: how many times a word appears in a document, and the inverse document frequency of the work across a set of documents. ^[https://monkeylearn.com/blog/what-is-tf-idf/#:~:text=TF%2DIDF%20is%20a%20statistical,across%20a%20set%20of%20documents.]   
+  
+In order to figure out what number of tokens to use for my particular data set, I did a ratio of Silge's token number and total observations. Using the ratio, I got a token amount 383 and decided to round up to 400. The token number is important because per Silge's recommendation, it is preferred to avoid creating too many variables in the first model, which in this case will be our single model.    
+$\frac{tokens}{observations}= ratio$      
+$\frac{1000}{117,214} = 0.0085314$  
+$observations \times ratio = tokens$    
+$44898 \times 0.0085314 = 383.04$   
+```{r}
+news_recipe <- news_recipe %>% 
+  step_tokenize(text) %>%
+  step_tokenfilter(text, max_tokens = 400) %>%
+  step_tfidf(text)
+```
+
+Now that we have a full specification of the preprocessing recipe, we can build up a tidymodels workflow() to bundle together our modeling components.
+```{r}
+news_wf <-workflow() %>% 
+  add_recipe(news_recipe)
+```
+
+##### Naive Bayes Model
+Now we'll initiate our model using ```naive_Bayes()``` from the **discrim** package in tidymodels. ```naive_Bayes()``` is a way to generate a specification of a model before fitting and allows the model to be created using different packages in R. ^[https://www.rdocumentation.org/packages/discrim/versions/0.1.1/topics/naive_Bayes] One of the main advantages of a naive Bayes model is its ability to handle a large number of features, such as those dealt with when using word count methods, in our case we have chose to keep 500 as specified in our ```step_tokenfilter()```.
+```{r}
+nb_spec <- naive_Bayes() %>%
+  set_mode("classification") %>%
+  set_engine("naivebayes")
+
+nb_spec
+```
+
+Now we have all the components necessary to fit our classification model. We can add the naive Bayes model to our workflow, and then we can fit this workflow to our training data to complete our classification model.
+```{r}
+nb_fit <- news_wf %>%
+  add_model(nb_spec) %>%
+  fit(data = news_train)
+```
+
+### Evaluate
+#### {.tabset}
+##### Data Preparation  
+We will use resampling to estimate the performance of the naive Bayes classification model just fit. This can be done using the resampled data sets built from the training set. Let’s create cross 10-fold cross-validation sets using the `vfold_cv()` function, and use these resampled sets for performance estimates.
+```{r}
+set.seed(234)
+news_folds <- vfold_cv(news_train)
+
+news_folds
+```
+
+```{r}
+nb_wf <- workflow() %>%
+  add_recipe(news_recipe) %>%
+  add_model(nb_spec)
+
+nb_wf
+```
+
+In the last section, we fit one time to the training data as a whole. Now, to estimate how well that model performs, let’s fit the model many times, once to each of these resampled folds, and then evaluate on the heldout part of each resampled fold.
+```{r}
+nb_rs <- fit_resamples(nb_wf, news_folds,
+  control = control_resamples(save_pred = TRUE))
+```
+
+##### Performance Metrics
+To extract relevant information, we use ```collect_metrics()``` and ```collect_predictions()```.
+```{r}
+nb_rs_metrics <- collect_metrics(nb_rs)
+nb_rs_predictions <- collect_predictions(nb_rs)
+```
+
+What do the performance metrics tell us?
+```{r}
+nb_rs_metrics
+```
+The default performance parameters for binary classification are **accuracy** and **ROC AUC** (area under the receiver operator characteristic curve). For these resamples, the average accuracy is shown by the value of```nb_rs_metrics[accuracy,mean]``` in the tibble above. 
+
+##### ROC Curve
+Below we have an ROC curve, a visualization of how well a classification model can distinguish between classes, for our classification model on each of the resampled data sets.    
+An ROC curve (receiver operating characteristic curve) is a graph showing the performance of a classification model at all classification thresholds. This curve plots two parameters: the True Positive Rate and the False Positive Rate. ^[https://developers.google.com/machine-learning/crash-course/classification/roc-and-auc#:~:text=An%20ROC%20curve%20(receiver%20operating,False%20Positive%20Rate]  
+
+The area under the curve below is the same value as seen in the tibble under the Performance Metrics tab, `nb_rs_metrics[roc_auc,mean]`.
+```{r}
+nb_rs_predictions %>%
+  group_by(id) %>%
+  roc_curve(truth = classification, .pred_Fake) %>%
+  autoplot() +
+  labs(
+    color = NULL,
+    title = "ROC curve for News Articles",
+    subtitle = "Each resample fold is shown in a different color"
+  )
+```
+
+  
+##### Confusion Matrix
+Another way to evaluate our model is to evaluate the confusion matrix. A confusion matrix is a table that is often used to describe the performance of a classification model (or "classifier") on a set of test data for which the true values are known. ^[https://www.dataschool.io/simple-guide-to-confusion-matrix-terminology/#:~:text=A%20confusion%20matrix%20is%20a,related%20terminology%20can%20be%20confusing.] A confusion matrix tabulates a model’s false positives and false negatives for each class. The function conf_mat_resampled() computes a separate confusion matrix for each resample and takes the average of the cell counts. This allows us to visualize an overall confusion matrix rather than needing to examine each resample individually. 
+
+As we can see below, our model performs pretty well since the diagonal shows darker shades of gray meaning there are less false-positives and false-negatives. Note, the accuracy value that can be calculated using the information from the table below is the same values as that shown in the tibble from the Performance Metrics tab `nb_rs_metrics[accuracy,mean]`.
+```{r}
+conf_mat_resampled(nb_rs, tidy = FALSE) %>%
+  autoplot(type = "heatmap")
+```
+
+### Conclusion
+#### {.tabset}
+##### Key Take-Aways
+In order to understand the in's and out's of Silge's and Hvitfeldt's work, I found it absolutely necessary to do a code along with the book and the same exact [data set](https://github.com/EmilHvitfeldt/useR2020-text-modeling-tutorial/blob/master/data/complaints.csv.gz) used by the author's in their Chapter 7 of "Supervised Machine Learning for Text Analysis in R" ^[https://smltar.com/mlclassification.html]. This truly helped guide my understanding of the code and how to apply it to the Fake News data set used for this project. Additionally, to understand the functions used in the book, plenty references were made to the function's R documentation which have also been included as references.    
+Next, I was truly intrigued about the data set and was adamant about being able to use it and at the same time endure reproducibility. As such, I am glad I was able to find Luis Durazo's package on Kaggle API usage in R otherwise, I most likely would have had to find another data set or use the recommended corpus on spam and ham emails.  
+Lastly, to note the biggest challenge faced was actually running the code in the console. The only way I was able to see my output was by rendering to HTML which even that was a challenge that took literally hours to complete (not kidding or exaggerating). The chunk that gave me this issue is under the Evaluate tab with the the `fit_resample()` function. I am not sure what made me want to even try the option of rendering to HTML, but that did end up working after several failed `Ctrl+Enter`s and even more dead-end Google searches.
+
+##### Session Info
+Below is the version information about R, the OS and attached or loaded packages for the making of this project. 
+```{r}
+devtools::session_info()
+```
+
