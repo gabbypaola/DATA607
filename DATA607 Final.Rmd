@@ -1,0 +1,589 @@
+---
+title: "DATA607 Final"
+author: "Gabriella Martinez, Maliat Islam, Gabriel Campos"
+date: "`r format(Sys.Date(), '%B %d %Y')`"
+output:
+  html_document:
+    code_folding: "show"
+    includes:
+      in_header: header.html
+    css: ./lab.css
+    highlight: pygments
+    theme: readable
+    toc: true
+    toc_float: true
+  prettydoc::html_pretty:
+    theme: cayman
+  pdf_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+
+<!--match.arg(theme, themes()) : 
+    'arg' should be one of "default", "cerulean", "journal","flatly",
+    "darkly", "readable", "spacelab", "united", "cosmo", "lumen", "paper", 
+    "sandstone", "simplex", "yeti"  -------->
+
+```{r, echo=FALSE,warning=FALSE, results='hide', include=FALSE}
+# install.packages("rio")
+# ^^^^ only if needed 
+library(httr)
+library(kableExtra)
+library(lubridate)
+library(readxl)
+library(rio)
+library(reactable)
+library(rvest)
+library(tidyverse)
+library(zoo)
+```
+
+<!-- (https://rdrr.io/cran/reactable/man/reactable.html) -->
+
+# Assignment{.tabset}
+
+## Requirements
+
+<center>
+$MSDA\ 607\ Final\ Project$
+</center>
+
+<span style="color: cornflowerblue;font-size:25px;"> Deliverables Schedule </span>
+
+*Deliverable*                             | *Date*                                             | *Points*
+:-------                                    | :--------------                    | :------
+One Paragraph Proposal                    | Sunday April 26                                    | 20  
+Final Project                             | Sunday May 10                                      | 120  
+Final Project Presentation                | Before or during Final Meetup on Wednesday May 13  | 30  
+
+<span style="color: cornflowerblue;font-size:25px;">Policy on Collaboration</span>
+
+You may work in a team of up to three people. Each project team member is responsible for understanding and being able to explain all of the submitted project code. Remember that you can take work that you find elsewhere as a base to build on, but you need to acknowledge the source, so that I base your grade on what you contributed, not on what you started with!
+
+<span style="color: cornflowerblue;font-size:25px;">Approval Meeting</span>
+
+Once you’ve turned in your one paragraph proposal, I want to schedule a 15 minute phone meeting with each person or team
+(starting when we return from Thanksgiving break), where you’ll describe the reason (benefit) for doing this work and/or
+question you’re seeking to answer, where you’ll source the data, and the overall flow. For team projects, I also want you to
+articulate the roles and responsibilities of each team member.
+
+<span style="color: cornflowerblue;font-size:25px;">Final Project Checklist</span>
+
+To receive full credit, you’ll need to deliver on all of the items in the checklist below. Please read carefully through this checklist
+before you make your project proposal. You are (within these checklist constraints) strongly urged to limit scope and make the
+necessary simplifying assumptions so that you can deliver your work on time!
+
+<style>
+.nobullet li {
+  list-style-type: none;
+  text-align: left
+}
+</style>
+
+<div class="nobullet">
+- [x] Proposal describes your motivation for performing this analysis
+- [x] Proposal describes likely data sources.
+- [x] Your project has a recognizable “data science workflow,” such as the <span style="color:blue">OSEMN work flow</span> or Hadley Wickham’s Grammar of Data Science. [Example: First the data is acquired, then necessary transformations and clean-up are performed, then the analysis and presentation work is performed] 
+- [x] Project includes data from at least two different types of data sources (e.g., two or more of these: relational or CSV,Neo4J, **<span style="color:blue">web page [scraped or API]</span>**, MongoDB, etc.)
+- [x] Project includes at least one data transformation operation. [Examples: <span style="color:blue">transforming from wide to long</span>; <span style="color:blue">converting columns to date format</span>]
+- [x] Project includes <span style="color:blue">at least one statistical analysis</span> and <span style="color:blue">at least one graphics</span> that describes or validates your data.
+- [x] Project includes at least one graphic that supports your conclusion(s).
+- [x] Project includes at least one statistical analysis that supports your conclusion(s).
+- [x] Project includes at least one feature that we did not cover in class! There are many examples: “I used ggmap; I created a decision tree; I ranked the results; I created my presentation slides directly from R; I figured out to use OAuth 2.0…”
+- [x] Presentation. Was the presentation delivered in the allotted time (3 to 5 minutes)?
+- [ ] Presentation. Did you show (at least) one challenge you encountered in code and/or data, and what you did when you encountered that challenge? If you didn’t encounter any challenges, your assignment was clearly too easy for you!
+- [ ] Presentation. Did the audience come away with a clear understanding of your motivation for undertaking the project?
+- [ ] Presentation. Did the audience come away with a clear understanding of at least one insight you gained or conclusion you reached or hypothesis you “confirmed” (rejected or failed to reject…)?
+- [x] Code and data. Have you delivered the submitted code and data where it is self-contained—preferably in <span style="color:blue">rpubs.com</span> and <span style="color:blue">github</span>? Am I able to <span style="color:blue">fully reproduce</span> your results with what you’ve delivered? You won’t receive full credit if your code references data on your local machine!
+- [x] Code and data. Does all of the delivered code run without errors?
+- [x] Code and data. Have you delivered your code and conclusions using a “reproducible research” tool such as RMarkdown?
+- [x] Deadline management. Were your draft project proposal, project, and presentation delivered on time? Any part of the project that is turned in late will receive a maximum grade of 80%. Please turn in your work on time! You are of course welcome to deliver ahead of schedule!
+</div>
+
+
+<!-- Code used to collapse output when needed.  -------->
+
+## Scope
+
+![](Article.png)
+With COVID-19 impacting employment worldwide, many articles have been published highlighting the toll it has taken on specific demographics. Our motivation to dive deeper into the impact by demographic, has been influenced by articles such as [**COVID-19 has spurred America’s first female recession**](https://www.pbs.org/newshour/economy/COVID-19-has-spurred-americas-first-female-recession). This article talk about the negative affect the pandemic has had on women in the United States. Using data from the [U.S. Bureau of Labor Statistics](https://www.bls.gov/), we hope to identify if the impact was disproportionate or great to women vs. men.
+
+## Data Preparation {.tabset .tabset-pills}
+
+### Load Data
+
+In order to conduct our studies we used data from [U.S. Bureau of Labor Statistics | Labor Force Statistics from the Current Population Survey](https://www.bls.gov/cps/tables.htm#empstat) specifically data regarding:
+
+* [Table 9 : *Unemployed persons by occupation, sex, and age*](https://www.bls.gov/cps/cpsaat09.htm)
+* [Table 10: *Unemployed persons by occupation, race, Hispanic or Latino ethnicity, and sex*](https://www.bls.gov/cps/cpsaat10.htm)
+* [Table 30: *Unemployed persons by occupation and sex*](https://www.bls.gov/cps/cpsaat30.htm)
+
+
+<!------- * [Table 34: *Unemployed jobseekers by sex, reason for unemployment, and active jobsearch methods used*](https://www.bls.gov/cps/cpsaat34.htm) --------->
+
+The data was **<span style="color:blue">web scraped </span>** then encapsulated using the functions `as.dataframe()`, `html_table()` and `read_html`, then subsetted. 
+
+```{r class.source = "fold-hide"}
+url_9  <- "https://www.bls.gov/web/empsit/cpseea09.htm"
+url_10 <- "https://www.bls.gov/web/empsit/cpseea10.htm"
+url_30 <- "https://www.bls.gov/web/empsit/cpseea30.htm"
+
+```
+
+<font size="5" color = "navy blue">Table 9 Data</font>
+```{r class.source = "fold-hide"}
+head(df_tb9  <- as.data.frame(html_table(read_html(url_9))[[2]]),5)%>%
+  reactable(highlight = TRUE, pagination = FALSE, height = 450)
+```
+
+
+<br>
+________________________________________________________________________________
+<br>
+
+<font size="5" color = "navy blue">Table 10 Data</font>
+
+```{r class.source = "fold-hide"}
+head(df_tb10 <- as.data.frame(html_table(read_html(url_10))[[2]]),5)%>%
+  reactable(highlight = TRUE, pagination = FALSE, height = 450)
+```
+
+<font size="5" color = "navy blue">Table 30 Data</font>
+
+```{r class.source = "fold-hide"}
+head(df_tb30 <- as.data.frame(html_table(read_html(url_30))[[2]]),10)%>%
+  reactable(highlight = TRUE, pagination = TRUE, height = 850)
+```
+
+<!---- https://bookdown.org/yihui/rmarkdown-cookbook/html-tabs.html ------>
+
+### Transform Data
+
+Data manipulation and *tidying* for `Table 9` included:
+
+* relabeling column values to reflect a *(4 digit: year)* **-** *(2 digit: month)* (`%y%m`) format.
+* subsetting data frames to remove unnecessary data or blank rows with the help of piping `%>%`
+* categorizing data with a `Gender` column, that included a `Male`,`Female` and `Total` value respectively.
+
+  **Note:** Total value was used to specify data that reflects total unemployment counts.
+
+```{r class.source = "fold-hide", results='hide'}
+colnames(df_tb10) <- c("Label","2020-03", "2020-04",
+                         "2020-05", "2020-06", "2020-07",
+                         "2020-08", "2020-09", "2020-10",
+                         "2020-11", "2020-12","2021-01",
+                         "2021-02", "2021-03")
+                              
+
+colnames(df_tb9) <- c("Label", "2020-03", "2020-04",
+                         "2020-05", "2020-06", "2020-07",
+                         "2020-08", "2020-09", "2020-10",
+                         "2020-11", "2020-12","2021-01",
+                         "2021-02", "2021-03")
+```
+
+```{r}
+df_tb9_tdy<-
+    as.data.frame(df_tb9[1,]%>%
+      assign_in(list(1,1),"Month")%>%
+        bind_rows(df_tb9[3:14,],
+          df_tb9[16:27,],
+          df_tb9[29:40,])
+    )
+# Adding male and female category
+df_tb9_tdy$Gender<-"Total"
+df_tb9_tdy$Gender[14:25] <- "Male"
+df_tb9_tdy$Gender[26:37] <- "Female"
+```
+
+And repeated for `Table 10`.
+
+```{r class.source = "fold-hide"}
+df_tb10_tdy<-
+    as.data.frame(df_tb10[1,]%>%
+      assign_in(list(1,1),"Month")%>%
+        bind_rows(df_tb10[3:14,],
+          df_tb10[16:27,],
+          df_tb10[29:40,])
+    )
+
+# Adding male and female category
+df_tb10_tdy$Gender<-"Total"
+df_tb10_tdy$Gender[14:25] <- "Male"
+df_tb10_tdy$Gender[26:37] <- "Female"
+```
+
+This *tidy* data (`df_tb9_tdy`,`df_tb10_tdy`) is the baseline used for our evaluation of the comparison between unemployment rates of men and women, during the beginning month until present day, of the pandemic. 
+
+Using [**ZevRoss: Know Your Data | Easy multi-panel plots in R using facet_wrap() and facet_grid() from ggplot2**](http://zevross.com/blog/2019/04/02/easy-multi-panel-plots-in-r-using-facet_wrap-and-facet_grid-from-ggplot2/) as a point of reference, we continue to transform the data.\newline
+
+Specifically:
+
+* `regex` is used within the `gsub()` function, to remove `,` from our `Rate` column.
+* `Month` and `Rate` is then transformed to data types that will allow for further analysis.
+
+
+```{r class.source = "fold-hide"}
+#Dependency on df_tb10_tdy    Rate, Gender, Age Group
+df_tb10_ln <- as.data.frame(df_tb10_tdy %>% 
+  slice(c(16,17,19,22,23,24,25,28,29,31,34,35,36,37)) %>% 
+    gather("Month_Year", "Rate", 2:14)%>%
+      lapply(function(x){ 
+        gsub(",", "", x)}))
+```
+
+```{r class.source = "fold-hide"}
+df_tb10_ln$Month_Year<- as.yearmon(df_tb10_ln$Month_Year) 
+df_tb10_ln$Rate <- as.numeric(df_tb10_ln$Rate)
+```
+
+The data is stored to `df_tb10_ln`. When sorted, it is easy to see that the highest unemployment rates overall, did occur among women between the ages of *16 to 19*, during the months of *March and April of 2020*, by a small margin over men `18 to 19` in `March & April 2020`.
+
+```{r, echo= FALSE}
+head(df_tb10_ln[with(df_tb10_ln, order(-Rate)),])%>%
+  kbl(row.names = FALSE) %>%
+  kable_classic("striped", full_width = F)
+```
+
+From here we calculate rates and store the values to `df_tb9_rt`. The data is transformed in a month over month format, so that it can be assessed as a trend throughout the year. The functions used to create this data frame included:
+
+* piping `%>%`
+* `slice()`
+* `gather()`
+* `mutate()`
+
+This data frame is grouped by `Gender` specifically.
+
+Dates and counts are converted with `as.yearmon()` & `as.numeric()`.
+
+The calculations for our month-over-month (`MoM`) values and month-over-month rates (`MoM_Rates`) were as follows:
+
+$MoM= \frac{Count - lag(Count)}{lag(Count)}$ 
+$MoM\_Rate =MoM\times100 :rounded\ to\ the\ tenth$ 
+
+where [`lag()`](https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/lag) is a time series shift from the `stats` package.
+
+
+```{r class.source = "fold-hide"}
+# Month over Month employment rate change by gender 
+#Dependency on df_tb9_tdy:     Rate and Gender
+df_tb9_rt <- df_tb9_tdy %>% 
+  slice(c(14,26)) %>% 
+    gather("Month_Year", "Count", 2:14)
+
+df_tb9_rt$Month_Year<- as.yearmon(df_tb9_rt$Month_Year)
+df_tb9_rt$Count <- as.numeric(gsub(",","",df_tb9_rt$Count))
+
+df_tb9_rt <- 
+    df_tb9_rt %>% 
+      group_by(Gender) %>% 
+        mutate(MoM = (Count - lag(Count)) / lag(Count)) %>% 
+          mutate(MoM_Rate =  round(MoM * 100, 2))
+```
+
+The result is a data frame with rates for ages *16 and over* (or all age groups).
+
+```{r, echo= FALSE,class.source = "fold-hide", results='show'}
+head(df_tb9_rt[with(df_tb9_rt, order(- MoM_Rate)),])%>%
+  kbl(row.names = FALSE) %>%
+  kable_classic("striped", full_width = F)
+```
+
+Following a similar approach, but grouping by `Gender` & `Label` we create data frame `df_tb9_MoM` and can see the impact for each age bracket.
+
+```{r class.source = "fold-hide"}
+# Month over Month employment rate change by age and gender 
+#Dependency on df_tb9_tdy:     Count, age, and Gender
+
+df_tb9_MoM <- df_tb9_tdy %>% 
+  slice(c(16,17,19,22,23,24,25,28,29,31,34,35,36,37)) %>% 
+  gather("Month_Year", "Count", 2:14)
+
+df_tb9_MoM$Month_Year<- as.yearmon(df_tb9_MoM$Month_Year) 
+df_tb9_MoM$Count <- as.numeric(gsub(",","",df_tb9_MoM$Count))
+
+df_tb9_MoM <- df_tb9_MoM %>% 
+  group_by(Gender, Label) %>% 
+  mutate(MoM = (Count - lag(Count)) / lag(Count)) %>% 
+  mutate(MoM_Rate =  round(MoM * 100, 1))
+```
+
+```{r class.source = "fold-hide", echo= FALSE, results='show'}
+arrange(df_tb9_MoM,Label)[15:25,]%>%
+  kbl(row.names = FALSE) %>%
+    kable_classic("striped", full_width = F)
+```
+
+Finally for our linear trend analysis `df_tb10_trend` is created for an additional perspective of unemployment by demographic by year.
+
+```{r class.source = "fold-hide"}
+#Dependency on df_tb10_tdy:     Rate and Gender
+#data transformation operation: from wide to long function: gather, package: tidyr  
+df_tb10_trend <- df_tb10_tdy %>% 
+  slice(c(14,26)) %>% 
+  gather("Month_Year", "Rate", 2:14)
+
+#data transformation operation: date format function: as.yearmon, package: zoo  
+df_tb10_trend$Month_Year<- as.yearmon(df_tb10_trend$Month_Year) 
+df_tb10_trend$Rate <- as.numeric(df_tb10_trend$Rate)
+```
+
+```{r class.source = "fold-hide", echo= FALSE, results='show'}
+head(df_tb10_trend,5)%>%
+  kbl(row.names = FALSE) %>%
+    kable_classic("striped", full_width = F)
+```
+
+Because the format of table 30 was slightly different from the latter, information it was *tidied* using the same overview but accounting for the specific rows and columns we required.
+
+```{r class.source = "fold-hide", message=FALSE}
+df_tb30 <- 
+  as.data.frame(
+    bind_rows(df_tb30[3,]
+              ,df_tb30[5:33,])%>%
+      select(-2,-3)%>%
+                lapply(function(x){
+                   gsub(" occupations", "", x)}
+                        ))%>%
+  `colnames<-`(c("Occupation_Label",
+                 "Total_Unemployed_Rates_April_2020",
+    "Total_Unemployed_Rates_April_2021", "Men_Unemployment_Rate_2020",
+    "Men_Unemployment_Rate_2021", "Women_Unemployment_Rate_2020",
+    "Women_Unemployment_Rate_2021"))
+```
+
+Industries are categorized as primary industry categories and sub categories in the original `HTML` file shown below
+
+![](industry categories.png){width=50%}
+<br>
+
+therefore 2 data frames were made with the [`gather()`](https://www.rdocumentation.org/packages/tidyr/versions/1.1.3/topics/gather) function from the `tidyr` package. 
+
+* `df_tb30_full` : noting all main and sub industry names
+* `df_tb30_sub`  : noting only the primary categories
+* `df_tb30_rc`   : including rate change
+
+`Gender_Year` column is created in the transformation with rate being transformed into a single column. 
+
+```{r class.source = "fold-hide"}
+# All categories
+df_tb30_full<-as.data.frame(df_tb30 %>% 
+  select(-2,-3)%>%
+    slice(c(2:30)) %>%
+      gather("Gender_Year", "Rate", 2:5))%>%
+        mutate(Rate = as.numeric(Rate))
+# Only Primary categories
+df_tb30_sub<-as.data.frame(df_tb30 %>% 
+  select(-2,-3)%>%
+    slice(c(3,6,15,21,24,28)) %>%
+      gather("Gender_Year", "Rate", 2:5))%>%
+        mutate(Rate = as.numeric(Rate))
+```
+
+An if else statement is used, referencing `Gender_Year` to categorize gender in our results.
+
+```{r class.source = "fold-hide"}
+df_tb30_full$Gender<-
+  ifelse(grepl("Men", df_tb30_full$Gender_Year), "Male",
+               ifelse(grepl("Women", df_tb30_full$Gender_Year), "Female", ""))
+
+df_tb30_sub$Gender<-
+  ifelse(grepl("Men", df_tb30_sub$Gender_Year), "Male",
+         ifelse(grepl("Women", df_tb30_sub$Gender_Year), "Female", ""))
+```
+
+The `Year` column is added to `df_tb30_sub` using case_when() and [endsWith()](https://www.marsja.se/r-add-column-to-dataframe-based-on-other-columns-conditions-dplyr/)
+
+```{r class.source = "fold-hide"}
+df_tb30_sub <- 
+  df_tb30_sub %>%
+  mutate(Year = case_when(
+    endsWith(Gender_Year, "2020") ~ "2020",
+    endsWith(Gender_Year, "2021") ~ "2021"))
+```
+
+In order to create `Rate_Change` in `df_tb30_rc` we used the following calculation in `mutate()`:
+
+$\frac{2021-2020}{2020} \times 100$
+
+```{r class.source = "fold-hide"}
+df_tb30_rc<-
+  df_tb30_sub %>%
+    select(- 2) %>% 
+      spread(Year,Rate)
+
+df_tb30_rc<-df_tb30_rc%>%
+  mutate(Rate_Change =
+    round((((df_tb30_rc$'2021' - df_tb30_rc$'2020')/df_tb30_rc$'2020')*100),2))
+
+```
+
+The resulting data frames are as follows:
+
+**df_tb30_full**
+
+```{r class.source = "fold-hide", echo = FALSE}
+head(df_tb30_full,10)%>%
+  kbl(row.names = FALSE) %>%
+    kable_classic("striped", full_width = F)
+```
+
+**df_tb30_sub**
+
+```{r class.source = "fold-hide", echo = FALSE}
+head(df_tb30_sub,10)%>%
+  kbl(row.names = FALSE) %>%
+    kable_classic("striped", full_width = F)
+```
+
+**df_tb30_rc**
+
+```{r echo = FALSE}
+df_tb30_rc%>%
+  kbl()%>%
+    kable_classic("striped", full_width = F)
+```
+
+
+### Exploratory Data Analysis
+
+The data from `Unemployment by Occupation and Gender`seems to support that women were more significantly impacted by unemployment in 2020, than men in virtually all industries.
+
+```{r class.source = "fold-hide"}
+ggplot(df_tb30_full, aes(x=fct_reorder(factor(Occupation_Label),Rate), y = (Rate),color = Gender,
+                         group = Gender, fill=Gender)) +
+  geom_col(position="dodge") +
+  theme_minimal()+
+  theme(axis.text.x = element_text( hjust=1))+
+  labs(title = 'Unemployment by Occupation and Gender'
+       ,subtitle = "4/2020-4/2021",
+       x = "Occupation", y = "Rate")+
+  coord_flip()
+```
+
+
+However when running `summary()` on our data, we see an low [`R-squared`](https://blog.minitab.com/en/adventures-in-statistics-2/regression-analysis-how-do-i-interpret-r-squared-and-assess-the-goodness-of-fit#:~:text=R%2Dsquared%20is%20a%20statistical,multiple%20determination%20for%20multiple%20regression.&text=100%25%20indicates%20that%20the%20model,response%20data%20around%20its%20mean.) value of `0.0118`. This indicates that our data does not fit well in our regression model. 
+
+```{r class.source = "fold-hide"}
+#testing linear model. issue: gender is categorical var- need to look into this
+# only accounts for 1.18% of data, Multiple R-squared:  0.0118
+summary(lm(Count~Gender, df_tb9_rt))
+```
+
+This fact is supported when running `plot()`, which results in various charts that we cannot used to support whether a relationship between unemployment and gender exists.
+
+```{r class.source = "fold-hide"}
+plot(lm(Count~Gender, df_tb9_rt))
+```
+
+## Analysis{.tabset .tabset-pills}
+
+Based on the the data seen in the below, women experienced a substantial loss in employment from the months of March to August 2020. This coincides with the [first day of stay at home order in the United States.](https://www.timeanddate.com/holidays/us/lockdown-day-1)
+
+### Gender & Age {.tabset .tabset-pills}
+
+#### Overall 
+
+We see that both male and females saw their largest unemployment spike in early March, women consistently having a higher rate monthly until about September 2020.
+
+**df_tb10_trend**
+```{r class.source = "fold-hide"}
+ggplot(df_tb10_trend, aes(x=factor(Month_Year), y = (Rate),color = Gender,
+                          group = Gender, fill=Gender)) +
+  geom_col(position="dodge") +
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45, hjust=1))+
+  labs(title = 'Unemployment Rates by Gender'
+       ,subtitle = "03/2020-03/2021",
+       x = "Month", y = "Rate")
+```
+
+
+Additionally, when broken down into age groups, we can see `18 to 19 years`, `16 to 17 years` and `35 to 44 years` of age where the highest for women and far exceeded the rates for men in the early months.
+
+**df_tb10_ln**
+```{r class.source = "fold-hide"}
+(ggplot(data = df_tb10_ln, aes(Month_Year,Rate,color = Gender,group = Gender))+
+  geom_line(size = 1) +
+  geom_point() + 
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45, hjust=1))+
+  labs(title = 'Unemployment Rates by Age Group and Gender'
+       ,subtitle = "03/2020-03/2021",
+       x = "Month", y = "Rate")+
+  facet_wrap( ~ Label, scales = "free_y"))
+```
+
+#### Month-over-month
+
+Grouping and plotting our data by month, allows us to see the trend from March 2020 to March 2021. Doing so paints a clearer picture of the impact by demographic of COVID.
+
+**df_tb9_rt**
+
+```{r class.source = "fold-hide", warning=FALSE}
+ggplot(df_tb9_rt, aes(x=factor(Month_Year), y=MoM, fill=Gender)) + 
+  geom_col(position="dodge") +
+  scale_y_continuous(labels = scales::percent)+  
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45, hjust=1))+
+  labs(title = 'Month over Month Employment Rate Change by Gender'
+       ,subtitle = "03/2020-03/2021",
+       x = "Month", y = "Rate Chnage")
+```
+
+**df_tb9_MoM**
+
+```{r class.source = "fold-hide", warning=FALSE}
+##bar plot month over month age grp and geneder
+(ggplot(df_tb9_MoM, aes(x=factor(Month_Year), y = (MoM), color = Gender,
+                        group = Gender, fill=Gender)) +
+  geom_col(position="dodge") +
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle=90, hjust=1))+
+  labs(title= 'Month over Month Employment Rate Change by Age Group and Gender',
+       subtitle="03/2020-03/2021",
+       x="Month", y="Rate Change")+
+  facet_wrap( ~ Label, scales = "free_y"))
+```
+
+### Gender & Occupation
+
+When the data is stratified by industry, we see the trend holds true regardless of profession.
+
+```{r class.source = "fold-hide", fig.height=10, fig.width=12}
+(ggplot(data = df_tb30_sub, aes(Year, Rate, color = Gender,
+                                group = Gender, fill = Gender)) +
+  geom_col(position="dodge") +
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45, hjust=1))+
+  labs(title = 'Plot 1: Unemployment Rates by Occupation and Gender'
+       ,subtitle = "2020-2021",
+       x = "Year", y = "Rate")+
+  facet_wrap( ~ Occupation_Label, scales = "free_y",
+              ncol = 3,labeller = labeller(Service = "Gender_Year")))
+```
+
+
+```{r class.source = "fold-hide", warning=FALSE}
+##bar plot month over month age group and gender
+ggplot(df_tb30_rc, aes(x=factor(Occupation_Label), y = (Rate_Change), color = Gender,
+                        group = Gender, fill=Gender)) +
+  geom_col(position="dodge") +
+  theme_minimal()+
+  theme(axis.text.x = element_text(hjust=1))+
+  labs(title= 'Rate Change Per Industry',
+       subtitle="04/2020-04/2021",
+       x="Industry", y="Rate Change")+coord_flip()
+```
+
+## Conclusion
+
+Our results support the title for the the article which inspired us, since it was published August 5,2020. At this point in the pandemic women were losing or leaving their jobs at a alarming rate. The concerns raised at the time were valid, and was at least 1 month away from producing data to supported the contrary. However, with the pandemic coming to a close (hopefully), we believe the trend should lean more favorably in women returning to the workforce.
+
+![](Article_Date.png)
+
+
+<!------- Below is for removing excessive space in Rmarkdown | HTML formatting -------->
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
