@@ -1,2 +1,2 @@
-# DATA-607
+# DATA607
 **Data Acquisition and Management**
